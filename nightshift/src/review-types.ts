@@ -11,7 +11,8 @@ export type AgentName =
   | "red-team"
   | "ml-specialist"
   | "spec-compliance-checker"
-  | "test-coverage-checker";
+  | "test-coverage-checker"
+  | "scope-checker";
 
 export type FindingCategory =
   | "actionable"
@@ -21,7 +22,8 @@ export type FindingCategory =
   | "false_positive"
   | "security"
   | "spec_gap"
-  | "test_gap";
+  | "test_gap"
+  | "scope_violation";
 
 export interface AgentFinding {
   id: string; // "cr-001", "rt-001"
@@ -83,5 +85,7 @@ export interface SentinelData {
   spec: string;
   files_changed: string[];
   lines_changed: number;
+  net_deletions?: number;
+  head_sha?: string;
   files_count: number;
 }

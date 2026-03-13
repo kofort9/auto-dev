@@ -1,0 +1,5 @@
+{
+  "verdict": "approve",
+  "must_not_contain_category": "scope_violation",
+  "description": "Spec explicitly asked to split scoring.ts into two files and update imports. All changes are directly in scope."
+}

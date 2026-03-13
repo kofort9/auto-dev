@@ -132,7 +132,7 @@ ${truncatedDiff}
 ## Classification Rules
 Tag each finding with a "fixability" field:
 - "auto_fixable": Code-level, mechanical fixes (magic numbers, missing imports, unused code introduced by this diff, missing test for a handler). Categories: actionable, style, test_gap, security with trivial/small effort.
-- "needs_human": Scope/design issues requiring judgment (removed existing functionality not in spec, architectural choices, scope creep, spec_gap, tradeoff, question). Also: any critical severity with confidence < 80.
+- "needs_human": Scope/design issues requiring judgment (removed existing functionality not in spec, architectural choices, scope creep, spec_gap, scope_violation, tradeoff, question). Also: any critical severity with confidence < 80.
 - "false_positive": The reviewer was wrong or the code is actually correct per spec.
 
 ## Output Format

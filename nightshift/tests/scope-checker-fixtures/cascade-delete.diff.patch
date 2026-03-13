@@ -1,0 +1,69 @@
+diff --git a/src/domain/nonprofit/types.ts b/src/domain/nonprofit/types.ts
+index abc1234..def5678 100644
+--- a/src/domain/nonprofit/types.ts
++++ b/src/domain/nonprofit/types.ts
+@@ -10,7 +10,6 @@ export interface NonprofitProfile {
+   name: string;
+   ein: string;
+   mission: string;
+-  cacheKey: string;
+   score: number;
+ }
+
+diff --git a/src/domain/nonprofit/cache.ts b/src/domain/nonprofit/cache.ts
+deleted file mode 100644
+index 1234567..0000000
+--- a/src/domain/nonprofit/cache.ts
++++ /dev/null
+@@ -1,43 +0,0 @@
+-import { NonprofitProfile } from "./types.js";
+-
+-const CACHE_TTL = 3600;
+-const cache = new Map<string, { data: NonprofitProfile; expires: number }>();
+-
+-export function getCached(key: string): NonprofitProfile | null {
+-  const entry = cache.get(key);
+-  if (!entry) return null;
+-  if (Date.now() > entry.expires) {
+-    cache.delete(key);
+-    return null;
+-  }
+-  return entry.data;
+-}
+-
+-export function setCached(key: string, data: NonprofitProfile): void {
+-  cache.set(key, { data, expires: Date.now() + CACHE_TTL * 1000 });
+-}
+-
+-export function invalidateCache(key: string): void {
+-  cache.delete(key);
+-}
+-
+-export function clearAllCache(): void {
+-  cache.clear();
+-}
+-
+-export function getCacheStats(): { size: number; keys: string[] } {
+-  return { size: cache.size, keys: Array.from(cache.keys()) };
+-}
+-
+-export function pruneExpired(): number {
+-  let pruned = 0;
+-  const now = Date.now();
+-  for (const [key, entry] of cache) {
+-    if (now > entry.expires) {
+-      cache.delete(key);
+-      pruned++;
+-    }
+-  }
+-  return pruned;
+-}
+
+diff --git a/src/domain/nonprofit/index.ts b/src/domain/nonprofit/index.ts
+index 7654321..8765432 100644
+--- a/src/domain/nonprofit/index.ts
++++ b/src/domain/nonprofit/index.ts
+@@ -1,3 +1,2 @@
+ export * from "./types.js";
+-export * from "./cache.js";
+ export * from "./scoring.js";

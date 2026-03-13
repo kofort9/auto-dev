@@ -1,0 +1,5 @@
+{
+  "verdict": "approve",
+  "must_not_contain_category": "scope_violation",
+  "description": "Spec asked to remove cacheKey field. Diff removes the field and replaces references with inline defaults — cache.ts preserved with adapted key strategy."
+}

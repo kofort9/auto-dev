@@ -1,0 +1,6 @@
+{
+  "verdict": "request_changes",
+  "must_contain_category": "scope_violation",
+  "must_contain_severity": "critical",
+  "description": "Spec asked to remove cacheKey field. Diff deleted entire cache.ts (43 lines of caching infrastructure) which serves purposes beyond the removed field."
+}

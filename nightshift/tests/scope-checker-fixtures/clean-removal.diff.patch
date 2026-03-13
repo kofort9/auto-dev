@@ -1,0 +1,28 @@
+diff --git a/src/domain/nonprofit/types.ts b/src/domain/nonprofit/types.ts
+index abc1234..def5678 100644
+--- a/src/domain/nonprofit/types.ts
++++ b/src/domain/nonprofit/types.ts
+@@ -10,7 +10,6 @@ export interface NonprofitProfile {
+   name: string;
+   ein: string;
+   mission: string;
+-  cacheKey: string;
+   score: number;
+ }
+
+diff --git a/src/domain/nonprofit/cache.ts b/src/domain/nonprofit/cache.ts
+index 1234567..9876543 100644
+--- a/src/domain/nonprofit/cache.ts
++++ b/src/domain/nonprofit/cache.ts
+@@ -1,8 +1,7 @@
+ import { NonprofitProfile } from "./types.js";
+
+ const CACHE_TTL = 3600;
+-const cache = new Map<string, { data: NonprofitProfile; expires: number }>();
++const cache = new Map<string, { key: string; data: NonprofitProfile; expires: number }>();
+
+-export function getCached(key: string): NonprofitProfile | null {
+-  const entry = cache.get(key);
++export function getCached(ein: string): NonprofitProfile | null {
++  const entry = cache.get(ein);
+   if (!entry) return null;

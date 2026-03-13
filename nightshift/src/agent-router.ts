@@ -24,6 +24,7 @@ const ALWAYS_RUN: AgentName[] = [
   "code-reviewer",
   "spec-compliance-checker",
   "test-coverage-checker",
+  "scope-checker",
 ];
 
 /** Conditional agents with their trigger patterns. */

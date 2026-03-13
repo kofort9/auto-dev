@@ -187,6 +187,12 @@ PROMPT_HEADER
   cat >> "$EXECUTE_PROMPT" <<'PROMPT_FOOTER'
 
 Implement this spec exactly. Follow CLAUDE.md conventions. Do not add dependencies. Run `npm run verify` before finishing. If verify fails, fix the issues and re-run until it passes.
+
+Scope constraint — read carefully:
+- Only modify code that the spec directly describes. Do not refactor, clean up, or "fix" surrounding code.
+- When removing a field, variable, or config key: replace references to it with sensible inline defaults (literal values, fallback constants) rather than deleting the code that consumes it. The consuming code may serve purposes beyond the removed item.
+- Do NOT cascade-delete functions, classes, or logic blocks just because they reference something being removed — unless the spec explicitly says to remove that system/feature.
+- If you are unsure whether something is in scope, leave it alone.
 PROMPT_FOOTER
 
   claude --print --permission-mode bypassPermissions < "$EXECUTE_PROMPT" \
@@ -223,6 +229,7 @@ Instructions:
 - Do not add features or change behavior — only improve code quality
 - Remove duplication and ensure consistency with existing patterns
 - Do not over-engineer: if the spec asks for something simple, keep it simple
+- Do NOT delete functions, classes, or logic blocks that the spec did not ask to remove — even if they seem unused after the execute phase's changes. Only remove code that the execute phase introduced and that is genuinely dead.
 - Run `npm run verify` after any changes.
 PROMPT_FOOTER
 
@@ -262,6 +269,8 @@ PROMPT_FOOTER
   # Gate 3: Lines changed limit
   LINES_CHANGED=$(git diff --stat origin/main | tail -1 | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+' || echo "0")
   LINES_DELETED=$(git diff --stat origin/main | tail -1 | grep -oE '[0-9]+ deletion' | grep -oE '[0-9]+' || echo "0")
+  [[ "$LINES_CHANGED" =~ ^[0-9]+$ ]] || LINES_CHANGED=0
+  [[ "$LINES_DELETED" =~ ^[0-9]+$ ]] || LINES_DELETED=0
   TOTAL_LINES=$((LINES_CHANGED + LINES_DELETED))
   if [[ "$TOTAL_LINES" -gt 500 ]]; then
     fail_issue "$NUMBER" "auto-failed" "Too many lines changed: $TOTAL_LINES (limit: 500)"
@@ -283,6 +292,52 @@ PROMPT_FOOTER
   fi
   log "  ✓ No unexpected dependency changes"
 
+  # Gate 5: Deletion budget — flag excessive deletions without spec justification
+  NET_DELETIONS=$(( LINES_DELETED - LINES_CHANGED ))
+  if [[ "$NET_DELETIONS" -lt 0 ]]; then
+    NET_DELETIONS=0
+  fi
+
+  # Regex: does the spec describe large-scale removal? (verb + noun within 50 chars)
+  DELETION_ALLOWLIST_RE='\b(remove|delete|eliminate|rip out|deprecate|drop|strip|sunset)\b.{0,50}\b(feature|system|module|service|component|logic|code|implementation|class|file|handler|middleware|layer|integration|workflow|subsystem|engine)\b'
+
+  spec_permits_removal() {
+    echo "$BODY" | grep -qiE "$DELETION_ALLOWLIST_RE"
+  }
+
+  DELETION_BLOCKED=false
+
+  # Check 1: Net deletions (deletions minus insertions)
+  if [[ "$NET_DELETIONS" -gt 15 ]]; then
+    if spec_permits_removal; then
+      log "  ✓ Net deletions: $NET_DELETIONS (>15, but spec permits removal)"
+    else
+      DELETION_BLOCKED=true
+      DELETION_MSG="Excessive net deletions: $NET_DELETIONS lines (limit: 15)"
+    fi
+  else
+    log "  ✓ Net deletions: $NET_DELETIONS (≤15)"
+  fi
+
+  # Check 2: Gross deletions (catch verbose-replacement evasion)
+  if [[ "$DELETION_BLOCKED" == "false" && "$LINES_DELETED" -gt 40 ]]; then
+    if spec_permits_removal; then
+      log "  ✓ Gross deletions: $LINES_DELETED (>40, but spec permits removal)"
+    else
+      DELETION_BLOCKED=true
+      DELETION_MSG="Excessive gross deletions: $LINES_DELETED lines deleted (limit: 40)"
+    fi
+  elif [[ "$DELETION_BLOCKED" == "false" ]]; then
+    log "  ✓ Gross deletions: $LINES_DELETED (≤40)"
+  fi
+
+  if [[ "$DELETION_BLOCKED" == "true" ]]; then
+    fail_issue "$NUMBER" "auto-failed" "$DELETION_MSG. Spec does not indicate large-scale removal. Review manually."
+    END_TIME=$(date +%s)
+    append_summary "$NUMBER" "fail" "\"verify\"" "$FILES_CHANGED" "$TOTAL_LINES" "$DELETION_MSG" "$((END_TIME - START_TIME))"
+    continue
+  fi
+
   log "All verification gates passed."
 
   # -------------------------------------------------------------------------
@@ -302,6 +357,8 @@ PROMPT_FOOTER
   "spec": $(echo "$BODY" | jq -Rs .),
   "files_changed": $CHANGED_FILES_JSON,
   "lines_changed": $TOTAL_LINES,
+  "net_deletions": $NET_DELETIONS,
+  "head_sha": "$(git rev-parse HEAD)",
   "files_count": $FILES_CHANGED
 }
 SENTINEL_EOF
