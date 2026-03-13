@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>auto-dev Pipeline — Visual Explainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --font-body: 'Sora', system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
+
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2236;
+    --border: rgba(255, 255, 255, 0.06);
+    --border-bright: rgba(255, 255, 255, 0.12);
+    --text: #e2e8f0;
+    --text-dim: #7c8db5;
+
+    --bash: #f59e0b;
+    --bash-dim: rgba(245, 158, 11, 0.12);
+    --ts: #3b82f6;
+    --ts-dim: rgba(59, 130, 246, 0.12);
+    --review: #a855f7;
+    --review-dim: rgba(168, 85, 247, 0.12);
+    --green: #22c55e;
+    --green-dim: rgba(34, 197, 94, 0.12);
+    --red: #ef4444;
+    --red-dim: rgba(239, 68, 68, 0.12);
+    --orange: #f97316;
+    --orange-dim: rgba(249, 115, 22, 0.12);
+    --cyan: #22d3ee;
+    --cyan-dim: rgba(34, 211, 238, 0.12);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface2: #f1f5f9;
+      --border: rgba(0, 0, 0, 0.07);
+      --border-bright: rgba(0, 0, 0, 0.14);
+      --text: #0f172a;
+      --text-dim: #64748b;
+      --bash: #d97706;
+      --bash-dim: rgba(217, 119, 6, 0.08);
+      --ts: #2563eb;
+      --ts-dim: rgba(37, 99, 235, 0.08);
+      --review: #9333ea;
+      --review-dim: rgba(147, 51, 234, 0.08);
+      --green: #16a34a;
+      --green-dim: rgba(22, 163, 74, 0.08);
+      --red: #dc2626;
+      --red-dim: rgba(220, 38, 38, 0.08);
+      --orange: #ea580c;
+      --orange-dim: rgba(234, 88, 12, 0.08);
+      --cyan: #0891b2;
+      --cyan-dim: rgba(8, 145, 178, 0.08);
+    }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    background-image:
+      radial-gradient(at 20% 10%, var(--ts-dim) 0%, transparent 50%),
+      radial-gradient(at 80% 60%, var(--review-dim) 0%, transparent 50%);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    overflow-wrap: break-word;
+    padding: 40px;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeScale {
+    from { opacity: 0; transform: scale(0.92); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .animate { animation: fadeUp 0.4s ease-out both; animation-delay: calc(var(--i, 0) * 0.06s); }
+  .animate-scale { animation: fadeScale 0.35s ease-out both; animation-delay: calc(var(--i, 0) * 0.06s); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Layout */
+  .wrap {
+    max-width: 1300px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 170px 1fr;
+    gap: 0 40px;
+  }
+  .main { min-width: 0; }
+
+  /* TOC */
+  .toc {
+    position: sticky; top: 24px; align-self: start;
+    padding: 14px 0; grid-row: 1 / -1;
+    max-height: calc(100dvh - 48px); overflow-y: auto;
+  }
+  .toc::-webkit-scrollbar { width: 3px; }
+  .toc::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 2px; }
+  .toc-title {
+    font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 2px; color: var(--text-dim);
+    padding: 0 0 10px; margin-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+  .toc a {
+    display: block; font-size: 11px; color: var(--text-dim); text-decoration: none;
+    padding: 4px 8px; border-radius: 5px; border-left: 2px solid transparent;
+    transition: all 0.15s; line-height: 1.4; margin-bottom: 1px;
+  }
+  .toc a:hover { color: var(--text); background: var(--surface2); }
+  .toc a.active { color: var(--text); border-left-color: var(--cyan); }
+
+  @media (max-width: 1000px) {
+    .wrap { grid-template-columns: 1fr; padding-top: 0; }
+    body { padding: 16px; padding-top: 0; }
+    .toc {
+      position: sticky; top: 0; z-index: 200; max-height: none;
+      display: flex; gap: 4px; align-items: center; overflow-x: auto;
+      -webkit-overflow-scrolling: touch; background: var(--bg);
+      border-bottom: 1px solid var(--border); padding: 10px 0;
+      margin: 0 -16px; padding-left: 16px; padding-right: 16px; grid-row: auto;
+    }
+    .toc::-webkit-scrollbar { display: none; }
+    .toc-title { display: none; }
+    .toc a {
+      white-space: nowrap; flex-shrink: 0; border-left: none;
+      border-bottom: 2px solid transparent; border-radius: 4px 4px 0 0; padding: 6px 10px; font-size: 10px;
+    }
+    .toc a.active { border-left: none; border-bottom-color: var(--cyan); background: var(--surface); }
+    .main { padding-top: 20px; }
+    .sec-head { scroll-margin-top: 52px; }
+  }
+
+  /* Typography */
+  h1 { font-size: 38px; font-weight: 700; letter-spacing: -1px; margin-bottom: 6px; text-wrap: balance; }
+  .subtitle { color: var(--text-dim); font-family: var(--font-mono); font-size: 12px; margin-bottom: 32px; }
+  h2 { font-size: 20px; font-weight: 600; margin-bottom: 16px; }
+  .sec-head {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1.5px; padding: 24px 0 12px;
+    border-bottom: 1px solid var(--border); margin-bottom: 20px;
+  }
+  p.desc { font-size: 14px; line-height: 1.7; color: var(--text-dim); margin-bottom: 24px; max-width: 700px; }
+  p.desc code {
+    font-family: var(--font-mono); font-size: 12px;
+    background: var(--cyan-dim); color: var(--cyan); padding: 1px 5px; border-radius: 3px;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 20px; margin-bottom: 12px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+  .card-label {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-label::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .card h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .card p { font-size: 13px; line-height: 1.6; color: var(--text-dim); }
+  .card code {
+    font-family: var(--font-mono); font-size: 11px;
+    background: var(--cyan-dim); color: var(--cyan); padding: 1px 5px; border-radius: 3px;
+  }
+
+  /* Phase grid */
+  .phase-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px; margin-bottom: 24px;
+  }
+
+  /* Tags */
+  .tag {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+    padding: 2px 7px; border-radius: 4px; display: inline-block;
+  }
+  .tag--bash { background: var(--bash-dim); color: var(--bash); }
+  .tag--ts { background: var(--ts-dim); color: var(--ts); }
+  .tag--review { background: var(--review-dim); color: var(--review); }
+  .tag--green { background: var(--green-dim); color: var(--green); }
+  .tag--red { background: var(--red-dim); color: var(--red); }
+  .tag--orange { background: var(--orange-dim); color: var(--orange); }
+
+  /* Mermaid */
+  .mermaid-wrap {
+    position: relative; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 32px 24px; overflow: auto; margin-bottom: 24px;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  .mermaid-wrap::-webkit-scrollbar { width: 6px; height: 6px; }
+  .mermaid-wrap::-webkit-scrollbar-track { background: transparent; }
+  .mermaid-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .mermaid-wrap .mermaid {
+    display: flex; justify-content: center;
+    transition: transform 0.2s ease; transform-origin: top center;
+  }
+  .zoom-controls {
+    position: absolute; top: 8px; right: 8px; display: flex; gap: 2px;
+    z-index: 10; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 2px;
+  }
+  .zoom-controls button {
+    width: 28px; height: 28px; border: none; background: transparent;
+    color: var(--text-dim); font-family: var(--font-mono); font-size: 14px;
+    cursor: pointer; border-radius: 4px; display: flex; align-items: center;
+    justify-content: center; transition: background 0.15s ease, color 0.15s ease;
+  }
+  .zoom-controls button:hover { background: var(--border); color: var(--text); }
+  .mermaid-wrap.is-zoomed { cursor: grab; }
+  .mermaid-wrap.is-panning { cursor: grabbing; user-select: none; }
+
+  .mermaid .nodeLabel { font-family: var(--font-body) !important; font-size: 14px !important; color: var(--text) !important; }
+  .mermaid .edgeLabel { font-family: var(--font-mono) !important; font-size: 11px !important; color: var(--text-dim) !important; background-color: var(--bg) !important; }
+  .mermaid .edgeLabel rect { fill: var(--bg) !important; }
+  .mermaid .node rect, .mermaid .node circle, .mermaid .node polygon { stroke-width: 1.5px !important; }
+  .mermaid .edge-pattern-solid { stroke-width: 1.5px !important; }
+
+  /* Legend */
+  .legend { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 24px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
+  .legend-swatch { width: 12px; height: 12px; border-radius: 3px; }
+
+  /* Collapsible */
+  details.collapsible { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
+  details.collapsible summary {
+    padding: 14px 20px; background: var(--surface); font-family: var(--font-mono);
+    font-size: 12px; font-weight: 600; cursor: pointer; list-style: none;
+    display: flex; align-items: center; gap: 8px; color: var(--text); transition: background 0.15s ease;
+  }
+  details.collapsible summary:hover { background: var(--surface2); }
+  details.collapsible summary::-webkit-details-marker { display: none; }
+  details.collapsible summary::before { content: '\25B8'; font-size: 11px; color: var(--text-dim); transition: transform 0.15s ease; }
+  details.collapsible[open] summary::before { transform: rotate(90deg); }
+  details.collapsible .body { padding: 16px 20px; border-top: 1px solid var(--border); font-size: 13px; line-height: 1.6; color: var(--text-dim); }
+  details.collapsible .body code {
+    font-family: var(--font-mono); font-size: 11px;
+    background: var(--cyan-dim); color: var(--cyan); padding: 1px 5px; border-radius: 3px;
+  }
+
+  /* Summary block */
+  .summary-block {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px 24px; font-family: var(--font-mono); font-size: 13px; line-height: 1.8;
+    white-space: pre-wrap; margin-bottom: 24px;
+  }
+
+  /* Label lifecycle */
+  .label-flow {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    margin-bottom: 24px; font-size: 13px;
+  }
+  .label-flow .arrow { color: var(--text-dim); font-size: 16px; }
+
+  @media (max-width: 768px) {
+    h1 { font-size: 24px; }
+    .phase-grid { grid-template-columns: 1fr; }
+    .mermaid-wrap { padding: 16px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <nav class="toc" id="toc">
+    <div class="toc-title">Contents</div>
+    <a href="#s1">Overview</a>
+    <a href="#s2">Pipeline Flow</a>
+    <a href="#s3">Bash Phases (1-5)</a>
+    <a href="#s4">TS Phases (6-9)</a>
+    <a href="#s5">Self-Review (10-12)</a>
+    <a href="#s6">Classification</a>
+    <a href="#s7">Labels</a>
+    <a href="#s8">Morning Summary</a>
+  </nav>
+
+  <div class="main">
+
+    <h1 class="animate" style="--i:0">auto-dev Pipeline</h1>
+    <p class="subtitle animate" style="--i:1">bugbot &rarr; nightshift &rarr; autonomous PRs</p>
+
+    <p class="desc animate" style="--i:2">
+      <strong>bugbot</strong> scans the codebase for issues and files them on GitHub.
+      <strong>nightshift</strong> picks them up and implements fixes autonomously using Claude Code,
+      then self-reviews its own PRs and triages them for the morning summary.
+      12 phases, zero human intervention overnight.
+    </p>
+
+    <!-- ─── OVERVIEW ─── -->
+    <div id="s1" class="sec-head animate" style="--i:3">Overview</div>
+
+    <div class="phase-grid">
+      <div class="card animate" style="--i:4">
+        <div class="card-label" style="color:var(--bash)">Bugbot</div>
+        <h3>Code Scanner</h3>
+        <p>Scans for dead code, type holes, missing tests, stale comments, input validation gaps. Files findings as GitHub issues with <code>nightshift</code> label.</p>
+      </div>
+      <div class="card animate" style="--i:5">
+        <div class="card-label" style="color:var(--ts)">Nightshift</div>
+        <h3>Job Queue</h3>
+        <p>Picks up <code>nightshift</code>-labeled issues. Runs Claude Code headlessly in git worktrees. Produces draft PRs with panel review.</p>
+      </div>
+      <div class="card animate" style="--i:6">
+        <div class="card-label" style="color:var(--review)">Self-Review</div>
+        <h3>Auto-Triage</h3>
+        <p>Reviews its own PRs after all issues are processed. Auto-fixes mechanical issues. Flags scope/design questions for human review.</p>
+      </div>
+    </div>
+
+    <!-- ─── PIPELINE FLOW ─── -->
+    <div id="s2" class="sec-head animate" style="--i:7">Pipeline Flow</div>
+
+    <div class="mermaid-wrap animate" style="--i:8">
+      <div class="zoom-controls">
+        <button onclick="zoomDiagram(this, 1.2)" title="Zoom in">+</button>
+        <button onclick="zoomDiagram(this, 0.8)" title="Zoom out">&minus;</button>
+        <button onclick="resetZoom(this)" title="Reset zoom">&#8634;</button>
+      </div>
+      <pre class="mermaid">
+graph TD
+  BB["Bugbot Scan"] --> ISS["GitHub Issue"]
+  ISS --> D["Phase 1: Discover"]
+
+  subgraph bash["auto-dev.sh (Bash)"]
+    D --> S["Phase 2: Setup Worktree"]
+    S --> E["Phase 3: Execute"]
+    E --> SM["Phase 4: Simplify"]
+    SM --> V["Phase 5: Verify"]
+  end
+
+  V --> SNT["Write Sentinel JSON"]
+
+  subgraph ts["worker.ts (TypeScript)"]
+    SNT --> PR["Phase 6: Panel Review"]
+    PR --> SF["Phase 6.5: Simplify Filter"]
+    SF --> FX["Phase 7: Fix Findings"]
+    FX --> RV["Phase 8: Re-verify"]
+    RV --> PB["Phase 9: Publish Draft PR"]
+  end
+
+  PB --> SR["Phase 10: Self-Review"]
+
+  subgraph rev["pr-self-review.ts"]
+    SR --> AF["Phase 11: Auto-Fix Loop"]
+    AF --> TR["Phase 12: Triage"]
+  end
+
+  TR --> OUT{Outcome}
+  OUT -->|clean| APR["Auto-Approved"]
+  OUT -->|fixed| SFX["Self-Fixed"]
+  OUT -->|scope issue| HUM["Needs Human"]
+
+  classDef bashNode fill:#f59e0b22,stroke:#f59e0b
+  classDef tsNode fill:#3b82f622,stroke:#3b82f6
+  classDef revNode fill:#a855f722,stroke:#a855f7
+  classDef greenNode fill:#22c55e22,stroke:#22c55e
+  classDef orangeNode fill:#f9731622,stroke:#f97316
+  classDef redNode fill:#ef444422,stroke:#ef4444
+
+  class D,S,E,SM,V bashNode
+  class PR,SF,FX,RV,PB tsNode
+  class SR,AF,TR revNode
+  class APR greenNode
+  class SFX orangeNode
+  class HUM redNode
+      </pre>
+    </div>
+
+    <div class="legend animate" style="--i:9">
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--bash)"></div> Bash (auto-dev.sh)</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--ts)"></div> TypeScript (worker.ts)</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--review)"></div> Self-Review (pr-self-review.ts)</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--green)"></div> Auto-approved</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--orange)"></div> Self-fixed</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--red)"></div> Needs human</div>
+    </div>
+
+    <!-- ─── BASH PHASES ─── -->
+    <div id="s3" class="sec-head animate" style="--i:10"><span class="tag tag--bash">bash</span> &nbsp; Phases 1-5 — auto-dev.sh</div>
+
+    <p class="desc">These phases run in a bash script. Claude Code is invoked headlessly to implement the fix in a fresh git worktree.</p>
+
+    <details class="collapsible animate" style="--i:11">
+      <summary><span class="tag tag--bash">1</span> &nbsp; Discover</summary>
+      <div class="body">Find <code>nightshift</code>-labeled issues via <code>gh issue list --label nightshift</code>. If <code>--issue</code> flag is passed, process a specific issue.</div>
+    </details>
+    <details class="collapsible animate" style="--i:12">
+      <summary><span class="tag tag--bash">2</span> &nbsp; Setup Worktree</summary>
+      <div class="body">Clean-slate setup: remove stale worktree + local branch + remote branch. Then <code>git worktree add</code> from <code>origin/main</code>, create feature branch <code>feat/gh-{N}-{slug}</code>, symlink <code>node_modules</code>.</div>
+    </details>
+    <details class="collapsible animate" style="--i:13">
+      <summary><span class="tag tag--bash">3</span> &nbsp; Execute</summary>
+      <div class="body">Run <code>claude --print --permission-mode bypassPermissions</code> with the issue spec as prompt. Claude implements the fix, runs <code>npm run verify</code>.</div>
+    </details>
+    <details class="collapsible animate" style="--i:14">
+      <summary><span class="tag tag--bash">4</span> &nbsp; Simplify</summary>
+      <div class="body">Second Claude pass reviewing <code>git diff origin/main</code> against the spec. Simplifies for clarity, consistency, maintainability. No feature changes.</div>
+    </details>
+    <details class="collapsible animate" style="--i:15">
+      <summary><span class="tag tag--bash">5</span> &nbsp; Verify</summary>
+      <div class="body">
+        Guardrails gate:
+        <br>&bull; <code>npm run verify</code> must pass
+        <br>&bull; Files changed &le; 15
+        <br>&bull; Lines changed &le; 500
+        <br>&bull; No unexpected dependency changes
+        <br>Writes sentinel JSON on success.
+      </div>
+    </details>
+
+    <!-- ─── TS PHASES ─── -->
+    <div id="s4" class="sec-head animate" style="--i:16"><span class="tag tag--ts">ts</span> &nbsp; Phases 6-9 — worker.ts</div>
+
+    <p class="desc">These phases run in TypeScript. A multi-agent panel reviews the code, filters overengineered suggestions, applies fixes, and publishes a draft PR.</p>
+
+    <details class="collapsible animate" style="--i:17">
+      <summary><span class="tag tag--ts">6</span> &nbsp; Panel Review</summary>
+      <div class="body">
+        Multi-agent review using Claude CLI:
+        <br>&bull; <strong>Always</strong>: code-reviewer, spec-compliance-checker, test-coverage-checker
+        <br>&bull; <strong>Conditional</strong>: red-team (auth/security files), ml-specialist (scoring/threshold files)
+        <br>Agents run in parallel. Findings are deduplicated, scored, and compiled into a ReviewBrief.
+      </div>
+    </details>
+    <details class="collapsible animate" style="--i:18">
+      <summary><span class="tag tag--ts">6.5</span> &nbsp; Simplify Filter</summary>
+      <div class="body">Sonnet call removes overengineered review suggestions. Keeps real bugs, security issues, spec gaps. Removes style nits, premature abstractions, unnecessary complexity.</div>
+    </details>
+    <details class="collapsible animate" style="--i:19">
+      <summary><span class="tag tag--ts">7</span> &nbsp; Fix</summary>
+      <div class="body">Applies actionable findings (trivial/small effort) via a punch list prompt. The spec is passed as untrusted context — Claude follows only the punch list.</div>
+    </details>
+    <details class="collapsible animate" style="--i:20">
+      <summary><span class="tag tag--ts">8</span> &nbsp; Re-verify</summary>
+      <div class="body"><code>npm run verify</code> after fixes. If it fails, the pipeline stops — no broken code gets published.</div>
+    </details>
+    <details class="collapsible animate" style="--i:21">
+      <summary><span class="tag tag--ts">9</span> &nbsp; Publish</summary>
+      <div class="body">
+        <code>git add -u</code>, commit, push, <code>gh pr create --draft</code>.
+        Posts ReviewBrief as PR comment. Updates labels: removes <code>nightshift</code>, adds <code>auto-pr-ready</code>.
+        <br><br>If no changes exist (empty diff), auto-closes the issue with a comment instead.
+      </div>
+    </details>
+
+    <!-- ─── SELF-REVIEW PHASES ─── -->
+    <div id="s5" class="sec-head animate" style="--i:22"><span class="tag tag--review">review</span> &nbsp; Phases 10-12 — pr-self-review.ts</div>
+
+    <p class="desc">After all issues are processed, nightshift reviews its own PRs. Runs once per batch, not per issue.</p>
+
+    <details class="collapsible animate" style="--i:23" open>
+      <summary><span class="tag tag--review">10</span> &nbsp; Self-Review</summary>
+      <div class="body">
+        Fetches PR diff via <code>gh pr diff</code>. Single sonnet agent reviews against the original spec.
+        Each finding gets a <code>fixability</code> tag: <span class="tag tag--green">auto_fixable</span>, <span class="tag tag--red">needs_human</span>, or <span class="tag tag--orange">false_positive</span>.
+      </div>
+    </details>
+    <details class="collapsible animate" style="--i:24" open>
+      <summary><span class="tag tag--review">11</span> &nbsp; Auto-Fix Loop</summary>
+      <div class="body">
+        For PRs with auto-fixable findings:
+        <br>&bull; Build punch list from findings
+        <br>&bull; <code>execClaude</code> with sonnet to apply fixes
+        <br>&bull; <code>npm run verify</code> — if fails, revert, mark needs_human
+        <br>&bull; Commit and push
+        <br>&bull; Re-review — max 2 iterations
+      </div>
+    </details>
+    <details class="collapsible animate" style="--i:25" open>
+      <summary><span class="tag tag--review">12</span> &nbsp; Triage</summary>
+      <div class="body">
+        Deterministic classification (no LLM):
+        <br>&bull; No findings or all false_positive &rarr; <span class="tag tag--green">auto_approved</span>
+        <br>&bull; Any needs_human finding &rarr; <span class="tag tag--red">needs_human</span>
+        <br>&bull; Only auto_fixable &rarr; attempt fix &rarr; <span class="tag tag--orange">self_fixed</span> or fallback to needs_human
+        <br><br>Actions: auto-approved/self-fixed PRs get <code>gh pr ready</code>. Needs-human PRs get a triage comment.
+      </div>
+    </details>
+
+    <!-- ─── CLASSIFICATION ─── -->
+    <div id="s6" class="sec-head animate" style="--i:26">Classification Decision Tree</div>
+
+    <p class="desc">How nightshift decides whether a review finding can be auto-fixed or needs human judgment. Classification happens inside the review prompt, not as a separate step.</p>
+
+    <div class="mermaid-wrap animate" style="--i:27">
+      <div class="zoom-controls">
+        <button onclick="zoomDiagram(this, 1.2)" title="Zoom in">+</button>
+        <button onclick="zoomDiagram(this, 0.8)" title="Zoom out">&minus;</button>
+        <button onclick="resetZoom(this)" title="Reset zoom">&#8634;</button>
+      </div>
+      <pre class="mermaid">
+graph TD
+  F["Review Finding"] --> CAT{Category?}
+
+  CAT -->|"actionable, style, test_gap"| EFF{Effort?}
+  EFF -->|"trivial / small"| AUTO["auto_fixable"]
+  EFF -->|"medium"| HUM["needs_human"]
+
+  CAT -->|"security"| SEFF{Effort?}
+  SEFF -->|"trivial / small"| AUTO
+  SEFF -->|"medium"| HUM
+
+  CAT -->|"tradeoff, question, spec_gap"| HUM
+
+  CAT -->|"false_positive"| FP["false_positive"]
+
+  F --> SEV{Severity + Confidence?}
+  SEV -->|"critical + confidence < 80"| HUM
+
+  F --> SCOPE{"Scope check"}
+  SCOPE -->|"removed existing features not in spec"| HUM
+  SCOPE -->|"added behavior not in spec"| HUM
+
+  classDef greenNode fill:#22c55e22,stroke:#22c55e
+  classDef redNode fill:#ef444422,stroke:#ef4444
+  classDef orangeNode fill:#f9731622,stroke:#f97316
+
+  class AUTO greenNode
+  class HUM redNode
+  class FP orangeNode
+      </pre>
+    </div>
+
+    <div class="phase-grid">
+      <div class="card animate" style="--i:28; border-left: 3px solid var(--green);">
+        <div class="card-label" style="color:var(--green)">Auto-Fixable</div>
+        <p>Magic numbers, missing imports, unused code, missing tests for existing patterns, style issues with clear mechanical fixes.</p>
+      </div>
+      <div class="card animate" style="--i:29; border-left: 3px solid var(--red);">
+        <div class="card-label" style="color:var(--red)">Needs Human</div>
+        <p>Scope creep, removed functionality, architectural choices, design tradeoffs, spec gaps, uncertain critical findings.</p>
+      </div>
+      <div class="card animate" style="--i:30; border-left: 3px solid var(--orange);">
+        <div class="card-label" style="color:var(--orange)">False Positive</div>
+        <p>Reviewer was wrong. The code is correct per spec. Skipped — no action taken.</p>
+      </div>
+    </div>
+
+    <!-- ─── LABELS ─── -->
+    <div id="s7" class="sec-head animate" style="--i:31">Label Lifecycle</div>
+
+    <div class="label-flow animate" style="--i:32">
+      <span class="tag tag--bash">bugbot files issue</span>
+      <span class="arrow">&rarr;</span>
+      <span class="tag" style="background:var(--cyan-dim);color:var(--cyan);">auto-ready</span>
+      <span>+</span>
+      <span class="tag" style="background:var(--ts-dim);color:var(--ts);">nightshift</span>
+      <span class="arrow">&rarr;</span>
+      <span class="tag" style="background:var(--review-dim);color:var(--review);">nightshift picks up</span>
+      <span class="arrow">&rarr;</span>
+      <span class="tag tag--green">auto-pr-ready</span>
+      <span>or</span>
+      <span class="tag tag--red">auto-failed</span>
+      <span>or</span>
+      <span class="tag" style="background:var(--text-dim);color:var(--bg);">closed</span>
+    </div>
+
+    <div class="phase-grid">
+      <div class="card animate" style="--i:33">
+        <h3><code>nightshift</code></h3>
+        <p>Scoped for autonomous processing. Applied by bugbot. Consumed by nightshift's discovery phase.</p>
+      </div>
+      <div class="card animate" style="--i:34">
+        <h3><code>auto-ready</code></h3>
+        <p>Broader gate — issue is specced and ready. Used by the wave promoter for dependency tracking.</p>
+      </div>
+      <div class="card animate" style="--i:35">
+        <h3><code>auto-pr-ready</code></h3>
+        <p>PR created, awaiting human merge. Counts as "satisfied" for dependency tracking.</p>
+      </div>
+      <div class="card animate" style="--i:36">
+        <h3><code>auto-failed</code></h3>
+        <p>Pipeline failed. Issue gets a comment explaining the failure phase. Needs investigation.</p>
+      </div>
+    </div>
+
+    <!-- ─── MORNING SUMMARY ─── -->
+    <div id="s8" class="sec-head animate" style="--i:37">Morning Summary</div>
+
+    <p class="desc">What you see when you check nightshift the next morning. The triage section tells you exactly what needs attention.</p>
+
+    <div class="summary-block animate" style="--i:38"># Nightshift Summary — 2026-03-13
+Started: 02:00 | Finished: 04:15 | Duration: 2h 15m
+
+## Results
+<span style="color:var(--green)">&#10003;</span> #234 (1m 52s) [panel: pass] &rarr; PR #236
+<span style="color:var(--green)">&#10003;</span> #232 (1m 30s) [panel: pass] &rarr; PR #237
+<span style="color:var(--green)">&#10003;</span> #225 (2m 05s) [panel: pass] &rarr; PR #238
+<span style="color:var(--green)">&#10003;</span> #218 (1m 48s) [panel: pass] &rarr; PR #239
+<span style="color:var(--green)">&#10003;</span> #217 (0m 45s) [panel: pass] &rarr; PR #240
+<span style="color:var(--green)">&#10003;</span> #87  (2m 10s) [panel: pass] &rarr; PR #241
+
+## Triage
+<span style="color:var(--green)">&#10003;</span> Auto-approved: #237, #240, #241
+<span style="color:var(--orange)">&#8635;</span> Self-fixed: #236 (1 iteration)
+<span style="color:var(--red)">&#9888;</span> Needs human: #239 (scope exceeded spec)
+<span style="color:var(--green)">&#10003;</span> Auto-approved: #238
+
+## Totals
+Completed: 6/6 | Failed: 0 | Skipped: 0</div>
+
+  </div><!-- /main -->
+</div><!-- /wrap -->
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    look: 'classic',
+    themeVariables: {
+      primaryColor: isDark ? '#1a2236' : '#f1f5f9',
+      primaryBorderColor: isDark ? '#3b82f6' : '#2563eb',
+      primaryTextColor: isDark ? '#e2e8f0' : '#0f172a',
+      secondaryColor: isDark ? '#1a1433' : '#faf5ff',
+      secondaryBorderColor: isDark ? '#a855f7' : '#9333ea',
+      secondaryTextColor: isDark ? '#e2e8f0' : '#0f172a',
+      tertiaryColor: isDark ? '#27201a' : '#fffbeb',
+      tertiaryBorderColor: isDark ? '#f59e0b' : '#d97706',
+      tertiaryTextColor: isDark ? '#e2e8f0' : '#0f172a',
+      lineColor: isDark ? '#7c8db5' : '#64748b',
+      fontSize: '14px',
+      fontFamily: "'Sora', system-ui, sans-serif",
+    }
+  });
+</script>
+<script>
+  // Zoom controls
+  function updateZoomState(wrap) {
+    var target = wrap.querySelector('.mermaid');
+    var zoom = parseFloat(target.dataset.zoom || '1');
+    wrap.classList.toggle('is-zoomed', zoom > 1);
+  }
+  function zoomDiagram(btn, factor) {
+    var wrap = btn.closest('.mermaid-wrap');
+    var target = wrap.querySelector('.mermaid');
+    var current = parseFloat(target.dataset.zoom || '1');
+    var next = Math.min(Math.max(current * factor, 0.3), 5);
+    target.dataset.zoom = next;
+    target.style.transform = 'scale(' + next + ')';
+    updateZoomState(wrap);
+  }
+  function resetZoom(btn) {
+    var wrap = btn.closest('.mermaid-wrap');
+    var target = wrap.querySelector('.mermaid');
+    target.dataset.zoom = '1';
+    target.style.transform = 'scale(1)';
+    updateZoomState(wrap);
+  }
+  document.querySelectorAll('.mermaid-wrap').forEach(function(wrap) {
+    wrap.addEventListener('wheel', function(e) {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      var target = wrap.querySelector('.mermaid');
+      var current = parseFloat(target.dataset.zoom || '1');
+      var factor = e.deltaY < 0 ? 1.1 : 0.9;
+      var next = Math.min(Math.max(current * factor, 0.3), 5);
+      target.dataset.zoom = next;
+      target.style.transform = 'scale(' + next + ')';
+      updateZoomState(wrap);
+    }, { passive: false });
+    var startX, startY, scrollL, scrollT;
+    wrap.addEventListener('mousedown', function(e) {
+      if (e.target.closest('.zoom-controls')) return;
+      var target = wrap.querySelector('.mermaid');
+      if (parseFloat(target.dataset.zoom || '1') <= 1) return;
+      wrap.classList.add('is-panning');
+      startX = e.clientX; startY = e.clientY;
+      scrollL = wrap.scrollLeft; scrollT = wrap.scrollTop;
+    });
+    window.addEventListener('mousemove', function(e) {
+      if (!wrap.classList.contains('is-panning')) return;
+      wrap.scrollLeft = scrollL - (e.clientX - startX);
+      wrap.scrollTop = scrollT - (e.clientY - startY);
+    });
+    window.addEventListener('mouseup', function() { wrap.classList.remove('is-panning'); });
+  });
+
+  // Scroll spy
+  (function() {
+    const toc = document.getElementById('toc');
+    const links = toc.querySelectorAll('a');
+    const sections = [];
+    links.forEach(link => {
+      const id = link.getAttribute('href').slice(1);
+      const el = document.getElementById(id);
+      if (el) sections.push({ id, el, link });
+    });
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          links.forEach(l => l.classList.remove('active'));
+          const match = sections.find(s => s.el === entry.target);
+          if (match) {
+            match.link.classList.add('active');
+            if (window.innerWidth <= 1000) {
+              match.link.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+          }
+        }
+      });
+    }, { rootMargin: '-10% 0px -80% 0px' });
+    sections.forEach(s => observer.observe(s.el));
+    links.forEach(link => {
+      link.addEventListener('click', e => {
+        e.preventDefault();
+        const id = link.getAttribute('href').slice(1);
+        const el = document.getElementById(id);
+        if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); history.replaceState(null, '', '#' + id); }
+      });
+    });
+  })();
+</script>
+
+</body>
+</html>

@@ -2,13 +2,16 @@
 # Source this from .zshrc: source ~/Repos/auto-dev/nightshift/nightshift.zsh
 
 bugbot() {
-  local repo="$HOME/Repos/auto-dev"
+  local repo="${AUTO_DEV_REPO:-$HOME/Repos/auto-dev}"
   (cd "$repo" && npx tsx bugbot/src/index.ts "$@")
 }
 
 nightshift() {
-  local repo="$HOME/Repos/auto-dev"
-  export TARGET_REPO="$HOME/Repos/nonprofit-vetting-engine"
+  local repo="${AUTO_DEV_REPO:-$HOME/Repos/auto-dev}"
+  # Source .env if it exists (provides TARGET_REPO, STATE_DIR, etc.)
+  [[ -f "$repo/.env" ]] && source "$repo/.env"
+  export TARGET_REPO="${TARGET_REPO:-$HOME/Repos/nonprofit-vetting-engine}"
+  export STATE_DIR="${STATE_DIR:-$HOME/.auto-dev}"
   local -a ns=(npx tsx nightshift/src/index.ts)
 
   case "${1:-}" in
@@ -18,14 +21,14 @@ nightshift() {
         return 1
       fi
       # Only remove lock if the owning process is dead
-      if [[ -f ~/.auto-dev/nightshift.lock ]]; then
+      if [[ -f "$STATE_DIR/nightshift.lock" ]]; then
         local lock_pid
-        lock_pid=$(cat ~/.auto-dev/nightshift.lock 2>/dev/null)
+        lock_pid=$(cat "$STATE_DIR/nightshift.lock" 2>/dev/null)
         if [[ -n "$lock_pid" ]] && kill -0 "$lock_pid" 2>/dev/null; then
           echo "Lock held by PID $lock_pid. Use 'nightshift stop' first."
           return 1
         fi
-        rm -f ~/.auto-dev/nightshift.lock
+        rm -f "$STATE_DIR/nightshift.lock"
       fi
       tmux new -d -s nightshift \; \
         set-option -t nightshift remain-on-exit on
@@ -46,7 +49,7 @@ nightshift() {
       cd "$repo" && "${ns[@]}" promote
       ;;
     log)
-      tail -f ~/.auto-dev/nightshift.log
+      tail -f "$STATE_DIR/nightshift.log"
       ;;
     *)
       if tmux has-session -t nightshift 2>/dev/null; then

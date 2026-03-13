@@ -80,11 +80,41 @@ export function generateSummary(
     `Completed: ${counts.completed}/${counts.total} | Failed: ${counts.failed} | Skipped: ${counts.skipped}`,
   );
 
-  const prNums = entries
-    .filter(([, i]) => i.status === "completed" && i.pr_url)
-    .map(([, i]) => `#${i.pr_url!.match(/\d+$/)?.[0] ?? ""}`)
-    .join(", ");
-  if (prNums) lines.push(`PRs to review: ${prNums}`);
+  // Triage section (from phases 10-12 self-review)
+  const triaged = entries.filter(([, i]) => i.self_review_status);
+  if (triaged.length > 0) {
+    lines.push("");
+    lines.push("## Triage");
+
+    const autoApproved = triaged
+      .filter(([, i]) => i.self_review_status === "auto_approved")
+      .map(([n]) => `#${n}`);
+    const selfFixed = triaged
+      .filter(([, i]) => i.self_review_status === "self_fixed")
+      .map(([n, i]) => `#${n} (${i.self_review_iterations ?? 0} iteration(s))`);
+    const needsHuman = triaged
+      .filter(([, i]) => i.self_review_status === "needs_human")
+      .map(([n, i]) => `#${n} (${i.triage_reason ?? "review findings"})`);
+    const reviewFailed = triaged
+      .filter(([, i]) => i.self_review_status === "review_failed")
+      .map(([n]) => `#${n}`);
+
+    if (autoApproved.length > 0)
+      lines.push(`✅ Auto-approved: ${autoApproved.join(", ")}`);
+    if (selfFixed.length > 0)
+      lines.push(`🔄 Self-fixed: ${selfFixed.join(", ")}`);
+    if (needsHuman.length > 0)
+      lines.push(`⚠️  Needs human: ${needsHuman.join(", ")}`);
+    if (reviewFailed.length > 0)
+      lines.push(`❌ Review failed: ${reviewFailed.join(", ")}`);
+  } else {
+    // Fallback: no self-review ran, show old-style PR list
+    const prNums = entries
+      .filter(([, i]) => i.status === "completed" && i.pr_url)
+      .map(([, i]) => `#${i.pr_url!.match(/\d+$/)?.[0] ?? ""}`)
+      .join(", ");
+    if (prNums) lines.push(`PRs to review: ${prNums}`);
+  }
 
   // Token usage totals
   const totalTokens = entries.reduce(

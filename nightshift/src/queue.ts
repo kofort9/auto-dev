@@ -16,7 +16,6 @@ import { runAutoDev, runPostAutodev } from "./worker.js";
 import type { ExtendedWorkerResult } from "./worker.js";
 import { CircuitBreaker } from "./circuit-breaker.js";
 import { WorkerPool } from "./pool.js";
-import { generateSummary, writeSummary } from "./summary.js";
 import { createLogger, formatDuration } from "./log.js";
 
 interface GhIssue {
@@ -109,7 +108,7 @@ export async function processQueue(
   opts: NightshiftOptions,
   scriptDir: string,
   repoRoot: string,
-): Promise<void> {
+): Promise<{ startTs: number; endTs: number }> {
   const startTs = Date.now();
   const breaker = new CircuitBreaker(opts.maxFailures);
   const concurrency = opts.concurrency ?? 1;
@@ -263,15 +262,7 @@ export async function processQueue(
     }
   }
 
-  // Morning summary
-  const endTs = Date.now();
-  const state = readState();
-  const summaryContent = generateSummary(state, startTs, endTs);
-  const summaryPath = writeSummary(summaryContent);
-
-  console.log("");
-  console.log(summaryContent);
-  log(`Summary → ${summaryPath}`);
+  return { startTs, endTs: Date.now() };
 }
 
 const log = createLogger("nightshift");

@@ -24,6 +24,8 @@ import {
 } from "./state.js";
 import { acquireLock, releaseLock } from "./lock.js";
 import { discoverIssues, buildQueue, processQueue } from "./queue.js";
+import { runPostRunReview } from "./pr-self-review.js";
+import { generateSummary, writeSummary } from "./summary.js";
 import { promoteNextWave } from "./promoter.js";
 import { createLogger } from "./log.js";
 
@@ -169,8 +171,19 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Process
-  await processQueue(queue, opts, SCRIPT_DIR, REPO_ROOT);
+  // Process (phases 1-9)
+  const { startTs, endTs } = await processQueue(queue, opts, SCRIPT_DIR, REPO_ROOT);
+
+  // Post-run self-review (phases 10-12)
+  await runPostRunReview(REPO_ROOT);
+
+  // Morning summary (after self-review so triage results are included)
+  const finalState = readState();
+  const summaryContent = generateSummary(finalState, startTs, endTs);
+  const summaryPath = writeSummary(summaryContent);
+  console.log("");
+  console.log(summaryContent);
+  log(`Summary → ${summaryPath}`);
 
   // Auto-promote next wave after processing
   promoteNextWave(REPO_ROOT);

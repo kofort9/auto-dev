@@ -15,7 +15,7 @@ unset CLAUDECODE 2>/dev/null || true
 #   scripts/auto-dev.sh --dry-run       # Discover + setup only, no execution
 
 TARGET_REPO="${TARGET_REPO:-$HOME/Repos/nonprofit-vetting-engine}"
-LOG_DIR="$HOME/.auto-dev/runs"
+LOG_DIR="${STATE_DIR:-$HOME/.auto-dev}/runs"
 DATE="$(date +%Y-%m-%d)"
 DRY_RUN=false
 SINGLE_ISSUE=""

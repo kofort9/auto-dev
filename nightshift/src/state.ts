@@ -10,7 +10,9 @@ import fs from "fs";
 import path from "path";
 import type { NightshiftState, IssueState } from "./types.js";
 
-const STATE_DIR = path.join(process.env.HOME!, ".auto-dev");
+const STATE_DIR = path.resolve(
+  (process.env.STATE_DIR ?? "~/.auto-dev").replace(/^~/, process.env.HOME ?? ""),
+);
 const STATE_FILE = path.join(STATE_DIR, "nightshift-state.json");
 
 // Async mutex: serializes all state writes through a Promise chain

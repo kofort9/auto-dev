@@ -272,7 +272,7 @@ export async function findPrUrl(
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function readSentinel(issueNumber: number): SentinelData | null {
+export function readSentinel(issueNumber: number): SentinelData | null {
   const runsDir = path.join(getStateDir(), "runs");
   // Find the most recent sentinel for this issue
   try {
@@ -341,7 +341,7 @@ Example: ["cr-001", "sc-002", "tc-001"]`;
   }
 }
 
-function execClaude(prompt: string, model: string, cwd: string): string {
+export function execClaude(prompt: string, model: string, cwd: string): string {
   try {
     const result = spawnSync(
       "claude",
@@ -406,7 +406,7 @@ Instructions:
   execClaude(prompt, "sonnet", worktree);
 }
 
-function runVerify(worktree: string): boolean {
+export function runVerify(worktree: string): boolean {
   try {
     execFileSync("npm", ["run", "verify"], {
       cwd: worktree,
@@ -428,6 +428,46 @@ function publish(
 ): string | undefined {
   const { worktree, branch } = sentinel;
   const title = getIssueTitle(issueNumber, worktree);
+
+  // Check if there are actually any changes to publish
+  const diffOutput = execFileSync("git", ["diff", "--name-only", "origin/main"], {
+    cwd: worktree,
+    encoding: "utf-8",
+  }).trim();
+
+  if (!diffOutput) {
+    log(`No changes for #${issueNumber} — closing issue`);
+    try {
+      execFileSync(
+        "gh",
+        [
+          "issue",
+          "comment",
+          String(issueNumber),
+          "--body",
+          "Closing — nightshift found no code changes needed. The issue may already be resolved.",
+        ],
+        { cwd: worktree },
+      );
+      execFileSync("gh", ["issue", "close", String(issueNumber)], {
+        cwd: worktree,
+      });
+      execFileSync(
+        "gh",
+        [
+          "issue",
+          "edit",
+          String(issueNumber),
+          "--remove-label",
+          "auto-ready,nightshift",
+        ],
+        { cwd: worktree },
+      );
+    } catch (err) {
+      log(`Failed to close issue #${issueNumber}: ${err}`);
+    }
+    return undefined;
+  }
 
   try {
     // Stage only tracked files that were modified (not untracked files from hallucination)

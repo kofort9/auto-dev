@@ -23,6 +23,13 @@ export interface IssueState {
   review_brief_path?: string;
   panel_verdict?: "pass" | "fail" | "conditional";
   token_usage?: { input: number; output: number; cost_usd: number };
+  self_review_status?:
+    | "auto_approved"
+    | "self_fixed"
+    | "needs_human"
+    | "review_failed";
+  self_review_iterations?: number;
+  triage_reason?: string;
 }
 
 export interface NightshiftState {
