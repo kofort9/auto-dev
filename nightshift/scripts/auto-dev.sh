@@ -280,10 +280,13 @@ PROMPT_FOOTER
   fi
   log "  ✓ Lines changed: $TOTAL_LINES (≤500)"
 
-  # Gate 4: No dependency changes (unless spec allows)
+  # Gate 4: No dependency changes (unless spec explicitly requests adding one)
   if git diff origin/main --name-only | grep -qE '^package(-lock)?\.json$'; then
-    # Check if the spec explicitly allows dependency changes
-    if ! echo "$BODY" | grep -qi "new dependenc"; then
+    # Require an explicit positive request — e.g., "add dependency X", "install package Y"
+    # Must NOT match negations like "no new dependencies" or "without adding dependencies"
+    if printf '%s' "$BODY" | grep -qiE '\b(add|install|require|include|introduce)\b.{0,30}\b(dependency|dependencies|package|module|library)\b'; then
+      log "  ✓ Dependency changes detected, spec explicitly requests adding dependencies"
+    else
       fail_issue "$NUMBER" "auto-failed" "Unexpected dependency changes detected in package.json"
       END_TIME=$(date +%s)
       append_summary "$NUMBER" "fail" "\"verify\"" "$FILES_CHANGED" "$TOTAL_LINES" "Unexpected dependency changes" "$((END_TIME - START_TIME))"
@@ -299,10 +302,11 @@ PROMPT_FOOTER
   fi
 
   # Regex: does the spec describe large-scale removal? (verb + noun within 50 chars)
-  DELETION_ALLOWLIST_RE='\b(remove|delete|eliminate|rip out|deprecate|drop|strip|sunset)\b.{0,50}\b(feature|system|module|service|component|logic|code|implementation|class|file|handler|middleware|layer|integration|workflow|subsystem|engine)\b'
+  DELETION_ALLOWLIST_RE='\b(remove|delete|eliminate|rip out|deprecate|drop|strip|sunset)\b.{0,50}\b(feature|system|module|service|component|implementation|class|file|handler|middleware|layer|integration|workflow|subsystem|engine)\b'
 
   spec_permits_removal() {
-    echo "$BODY" | grep -qiE "$DELETION_ALLOWLIST_RE"
+    # Strip HTML comments (invisible in GitHub rendered view, could bypass gate)
+    printf '%s' "$BODY" | sed 's/<!--.*-->//g' | grep -qiE "$DELETION_ALLOWLIST_RE"
   }
 
   DELETION_BLOCKED=false

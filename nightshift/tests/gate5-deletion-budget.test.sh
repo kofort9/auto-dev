@@ -28,7 +28,7 @@ assert_eq() {
 # ---------------------------------------------------------------------------
 
 # Regex: does the spec describe large-scale removal? (verb + noun within 50 chars)
-DELETION_ALLOWLIST_RE='\b(remove|delete|eliminate|rip out|deprecate|drop|strip|sunset)\b.{0,50}\b(feature|system|module|service|component|logic|code|implementation|class|file|handler|middleware|layer|integration|workflow|subsystem|engine)\b'
+DELETION_ALLOWLIST_RE='\b(remove|delete|eliminate|rip out|deprecate|drop|strip|sunset)\b.{0,50}\b(feature|system|module|service|component|logic|implementation|class|file|handler|middleware|layer|integration|workflow|subsystem|engine)\b'
 
 run_deletion_gate() {
   local lines_deleted="${1:-0}" lines_changed="${2:-0}" body="$3"
@@ -91,9 +91,9 @@ assert_eq "Over threshold, spec permits: PASS" "false" "$result"
 result=$(run_deletion_gate "41" "25" "remove field")
 assert_eq "Evasion verbose replacement: FAIL (gross=41)" "true" "$result"
 
-# Case 7: Evasion attempt with keyword (gross=40, regex matches — known limitation)
-result=$(run_deletion_gate "40" "25" "remove the typo in code")
-assert_eq "Evasion with keyword: PASS (known false allowlist)" "false" "$result"
+# Case 7: Evasion attempt — "code" removed from noun list, now correctly blocked
+result=$(run_deletion_gate "41" "25" "remove the typo in code")
+assert_eq "Evasion with 'code' (no longer in noun list): FAIL" "true" "$result"
 
 # Case 8: Empty LINES_DELETED (defensive guard)
 result=$(run_deletion_gate "" "5" "any body")

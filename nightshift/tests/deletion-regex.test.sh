@@ -12,7 +12,7 @@ GREEN='\033[0;32m'
 NC='\033[0m'
 
 # Shared regex — must match the pattern in auto-dev.sh Gate 5
-DELETION_ALLOWLIST_RE='\b(remove|delete|eliminate|rip out|deprecate|drop|strip|sunset)\b.{0,50}\b(feature|system|module|service|component|logic|code|implementation|class|file|handler|middleware|layer|integration|workflow|subsystem|engine)\b'
+DELETION_ALLOWLIST_RE='\b(remove|delete|eliminate|rip out|deprecate|drop|strip|sunset)\b.{0,50}\b(feature|system|module|service|component|logic|implementation|class|file|handler|middleware|layer|integration|workflow|subsystem|engine)\b'
 
 assert_match() {
   local test_name="$1" expected="$2" body="$3"
