@@ -9,6 +9,9 @@
  */
 
 import { execFileSync } from "child_process";
+import { createLogger } from "./log.js";
+
+const log = createLogger("nightshift");
 
 interface GhIssueWithBody {
   number: number;
@@ -171,12 +174,3 @@ function labelAutoReady(
   }
 }
 
-function log(msg: string): void {
-  const time = new Date().toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-  console.log(`[nightshift] ${time} ${msg}`);
-}

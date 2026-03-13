@@ -129,13 +129,6 @@ function isUsedInSameFile(
   return false;
 }
 
-function _isToolEntry(name: string, scanRoot: string): boolean {
-  const registryPath = path.join(scanRoot, "src/server/tool-registry.ts");
-  if (!fs.existsSync(registryPath)) return false;
-  const content = fs.readFileSync(registryPath, "utf-8");
-  return content.includes(name);
-}
-
 function makeId(file: string, line: number): string {
   return createHash("sha256")
     .update(`dead-code:${file}:${line}-${line}`)

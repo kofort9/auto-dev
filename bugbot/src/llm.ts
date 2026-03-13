@@ -185,7 +185,10 @@ function execClaude(
   return new Promise((resolve) => {
     const args = [
       "--print",
-      "--dangerously-skip-permissions",
+      "--permission-mode",
+      "bypassPermissions",
+      "--allowedTools",
+      "Read,Glob,Grep",
       "--model",
       model,
       "--output-format",

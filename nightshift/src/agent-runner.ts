@@ -185,14 +185,16 @@ function execClaude(
       "bypassPermissions",
       "--model",
       model,
-      "--prompt-file",
-      tmpFile,
     ];
 
     const proc = spawn("claude", args, {
       cwd,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ["pipe", "pipe", "pipe"],
     });
+
+    // Pipe prompt via stdin (--prompt-file was removed from CLI)
+    proc.stdin.write(fs.readFileSync(tmpFile, "utf-8"));
+    proc.stdin.end();
 
     let stdout = "";
     let stderr = "";

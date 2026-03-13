@@ -115,7 +115,6 @@ export async function processQueue(
     }
   }
 
-  let _completed = 0;
   let halted = false;
 
   const processEntry = async (
@@ -187,7 +186,6 @@ export async function processQueue(
           token_usage: postResult.token_usage,
         });
         breaker.recordSuccess();
-        _completed++;
         log(
           `#${entry.number} — COMPLETED (${formatDuration(totalDuration)})${postResult.pr_url ? ` → ${postResult.pr_url}` : ""}`,
         );

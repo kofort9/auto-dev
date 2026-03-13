@@ -30,9 +30,10 @@ import { createLogger } from "./log.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const NIGHTSHIFT_ROOT = path.resolve(__dirname, ".."); // nightshift/
 const SCRIPT_DIR = path.join(NIGHTSHIFT_ROOT, "scripts"); // nightshift/scripts/
-const REPO_ROOT = process.env.TARGET_REPO
-  ? path.resolve(process.env.TARGET_REPO.replace(/^~/, process.env.HOME ?? ""))
-  : path.resolve(NIGHTSHIFT_ROOT, ".."); // fallback: auto-dev root
+const TARGET_REPO_DEFAULT = "~/Repos/nonprofit-vetting-engine";
+const REPO_ROOT = path.resolve(
+  (process.env.TARGET_REPO ?? TARGET_REPO_DEFAULT).replace(/^~/, process.env.HOME ?? ""),
+);
 
 // --- Arg parsing ---
 const args = process.argv.slice(2);

@@ -5,7 +5,7 @@
  *   auto-dev.sh → sentinel.json → panel review → simplify filter → fix → re-verify → publish
  */
 
-import { spawn, execFileSync } from "child_process";
+import { spawn, execFileSync, spawnSync } from "child_process";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -326,13 +326,8 @@ Example: ["cr-001", "sc-002", "tc-001"]`;
 }
 
 function execClaude(prompt: string, model: string, cwd: string): string {
-  const tmpFile = path.join(
-    os.tmpdir(),
-    `nightshift-prompt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.md`,
-  );
-  fs.writeFileSync(tmpFile, prompt);
   try {
-    return execFileSync(
+    const result = spawnSync(
       "claude",
       [
         "--print",
@@ -340,24 +335,18 @@ function execClaude(prompt: string, model: string, cwd: string): string {
         "bypassPermissions",
         "--model",
         model,
-        "--prompt-file",
-        tmpFile,
       ],
       {
         cwd,
+        input: prompt,
         encoding: "utf-8",
         timeout: 5 * 60 * 1000, // 5 min for filter/fix
         maxBuffer: 5 * 1024 * 1024,
       },
     );
+    return result.stdout ?? "";
   } catch {
     return "";
-  } finally {
-    try {
-      fs.unlinkSync(tmpFile);
-    } catch {
-      /* cleanup best-effort */
-    }
   }
 }
 

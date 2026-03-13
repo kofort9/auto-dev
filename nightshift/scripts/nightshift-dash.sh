@@ -5,7 +5,7 @@
 STATE="$HOME/.auto-dev/nightshift-state.json"
 LOG="$HOME/.auto-dev/nightshift.log"
 SUMMARY="$HOME/.auto-dev/runs/summary.jsonl"
-REPO="$HOME/Repos/nonprofit-vetting-engine"
+REPO="${TARGET_REPO:-$HOME/Repos/nonprofit-vetting-engine}"
 BUF=$(mktemp)
 
 # Colors

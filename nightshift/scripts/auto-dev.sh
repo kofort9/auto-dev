@@ -14,7 +14,6 @@ unset CLAUDECODE 2>/dev/null || true
 #   scripts/auto-dev.sh --cleanup-all   # Remove all auto-dev worktrees
 #   scripts/auto-dev.sh --dry-run       # Discover + setup only, no execution
 
-AUTODEV_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TARGET_REPO="${TARGET_REPO:-$HOME/Repos/nonprofit-vetting-engine}"
 LOG_DIR="$HOME/.auto-dev/runs"
 DATE="$(date +%Y-%m-%d)"
@@ -183,7 +182,7 @@ PROMPT_HEADER
 Implement this spec exactly. Follow CLAUDE.md conventions. Do not add dependencies. Run `npm run verify` before finishing. If verify fails, fix the issues and re-run until it passes.
 PROMPT_FOOTER
 
-  claude --print --permission-mode bypassPermissions --prompt-file "$EXECUTE_PROMPT" \
+  claude --print --permission-mode bypassPermissions < "$EXECUTE_PROMPT" \
     > "$EXECUTE_LOG" 2>&1 || {
       log "Claude execution failed (exit code $?). See $EXECUTE_LOG"
       fail_issue "$NUMBER" "auto-failed" "Claude execution failed. See logs."
@@ -220,7 +219,7 @@ Instructions:
 - Run `npm run verify` after any changes.
 PROMPT_FOOTER
 
-  claude --print --permission-mode bypassPermissions --prompt-file "$SIMPLIFY_PROMPT" \
+  claude --print --permission-mode bypassPermissions < "$SIMPLIFY_PROMPT" \
     > "$SIMPLIFY_LOG" 2>&1 || {
       log "Simplify pass had issues. See $SIMPLIFY_LOG"
       # Non-fatal — continue to verify

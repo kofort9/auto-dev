@@ -1,5 +1,10 @@
-# Nightshift — auto-dev pipeline CLI
+# auto-dev pipeline CLI — nightshift + bugbot
 # Source this from .zshrc: source ~/Repos/auto-dev/nightshift/nightshift.zsh
+
+bugbot() {
+  local repo="$HOME/Repos/auto-dev"
+  (cd "$repo" && npx tsx bugbot/src/index.ts "$@")
+}
 
 nightshift() {
   local repo="$HOME/Repos/auto-dev"
