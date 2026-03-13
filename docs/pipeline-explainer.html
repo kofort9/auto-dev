@@ -458,8 +458,8 @@ graph TD
       <summary><span class="tag tag--ts">9</span> &nbsp; Publish</summary>
       <div class="body">
         <code>git add -u</code>, commit, push, <code>gh pr create --draft</code>.
-        Posts ReviewBrief as PR comment. Updates labels: removes <code>nightshift</code>, adds <code>auto-pr-ready</code>.
-        <br><br>If no changes exist (empty diff), auto-closes the issue with a comment instead.
+        Posts ReviewBrief as PR comment. Updates labels: removes <code>auto-ready</code> + <code>nightshift</code>, adds <code>auto-pr-ready</code>.
+        <br><br>If no changes exist (empty diff), removes <code>auto-ready</code> + <code>nightshift</code> labels and auto-closes the issue with a comment instead of creating a PR.
       </div>
     </details>
 
@@ -478,12 +478,13 @@ graph TD
     <details class="collapsible animate" style="--i:24" open>
       <summary><span class="tag tag--review">11</span> &nbsp; Auto-Fix Loop</summary>
       <div class="body">
-        For PRs with auto-fixable findings:
+        For PRs with auto-fixable findings (max 2 iterations):
         <br>&bull; Build punch list from findings
         <br>&bull; <code>execClaude</code> with sonnet to apply fixes
-        <br>&bull; <code>npm run verify</code> — if fails, revert, mark needs_human
+        <br>&bull; <code>npm run verify</code> — if fails, mark needs_human
         <br>&bull; Commit and push
-        <br>&bull; Re-review — max 2 iterations
+        <br>&bull; Re-review the PR diff to confirm findings are resolved
+        <br>&bull; If findings remain, loop (up to 2 iterations total)
       </div>
     </details>
     <details class="collapsible animate" style="--i:25" open>
@@ -603,21 +604,23 @@ graph TD
 Started: 02:00 | Finished: 04:15 | Duration: 2h 15m
 
 ## Results
-<span style="color:var(--green)">&#10003;</span> #234 (1m 52s) [panel: pass] &rarr; PR #236
-<span style="color:var(--green)">&#10003;</span> #232 (1m 30s) [panel: pass] &rarr; PR #237
-<span style="color:var(--green)">&#10003;</span> #225 (2m 05s) [panel: pass] &rarr; PR #238
-<span style="color:var(--green)">&#10003;</span> #218 (1m 48s) [panel: pass] &rarr; PR #239
-<span style="color:var(--green)">&#10003;</span> #217 (0m 45s) [panel: pass] &rarr; PR #240
-<span style="color:var(--green)">&#10003;</span> #87  (2m 10s) [panel: pass] &rarr; PR #241
-
-## Triage
-<span style="color:var(--green)">&#10003;</span> Auto-approved: #237, #240, #241
-<span style="color:var(--orange)">&#8635;</span> Self-fixed: #236 (1 iteration)
-<span style="color:var(--red)">&#9888;</span> Needs human: #239 (scope exceeded spec)
-<span style="color:var(--green)">&#10003;</span> Auto-approved: #238
+✅ #234 (1m 52s) [panel: pass] → PR #236
+✅ #232 (1m 30s) [panel: pass] → PR #237
+✅ #225 (2m 05s) [panel: pass] → PR #238
+✅ #218 (1m 48s) [panel: pass] → PR #239
+✅ #217 (0m 45s) [panel: pass] → PR #240
+✅ #87  (2m 10s) [panel: pass] → PR #241
 
 ## Totals
-Completed: 6/6 | Failed: 0 | Skipped: 0</div>
+Completed: 6/6 | Failed: 0 | Skipped: 0
+
+## Triage
+✅ Auto-approved: #237, #238, #240, #241
+🔄 Self-fixed: #236 (1 iteration(s))
+⚠️  Needs human: #239 (scope exceeded spec)
+
+## Token Usage
+Input: 245,000 | Output: 38,000 | Est: $2.15</div>
 
   </div><!-- /main -->
 </div><!-- /wrap -->

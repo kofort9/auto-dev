@@ -88,11 +88,12 @@ nightshift promote                  # Label next wave of unblocked issues
 
 ```
 [bugbot files issue]
-    → auto-ready + nightshift
+    → adds: auto-ready + nightshift + bugbot + bugbot:{category}
         → [nightshift picks up]
-            → [success] auto-pr-ready (draft PR created)
-            → [no changes] issue closed with comment
-            → [failure] auto-failed
+            → removes: auto-ready + nightshift
+            → [success] adds: auto-pr-ready (draft PR created)
+            → [no changes] issue closed with comment (no label added)
+            → [failure] adds: auto-failed
 ```
 
 - `nightshift` — scoped for autonomous processing
