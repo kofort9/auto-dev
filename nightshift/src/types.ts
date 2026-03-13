@@ -18,6 +18,8 @@ export interface IssueState {
   reason?: string;
   started_at?: string;
   slot?: number;
+  attempts?: number;
+  last_failed_phase?: string;
   review_brief_path?: string;
   panel_verdict?: "pass" | "fail" | "conditional";
   token_usage?: { input: number; output: number; cost_usd: number };

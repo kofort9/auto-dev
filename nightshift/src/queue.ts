@@ -65,6 +65,8 @@ export interface QueueEntry {
   title: string;
 }
 
+const MAX_ATTEMPTS = 3;
+
 export function buildQueue(
   issues: GhIssue[],
   state: NightshiftState,
@@ -73,9 +75,20 @@ export function buildQueue(
   const queue: QueueEntry[] = [];
 
   for (const issue of issues) {
-    const prev = state.issues[String(issue.number)]?.status ?? "pending";
+    const issueState = state.issues[String(issue.number)];
+    const prev = issueState?.status ?? "pending";
 
     if (prev === "completed") {
+      skippedCompleted++;
+      continue;
+    }
+
+    // Skip issues that have exhausted retry attempts
+    const attempts = issueState?.attempts ?? 0;
+    if (prev === "failed" && attempts >= MAX_ATTEMPTS) {
+      log(
+        `Skipping #${issue.number}: exhausted ${MAX_ATTEMPTS} attempts (last failure: ${issueState?.last_failed_phase ?? "unknown"})`,
+      );
       skippedCompleted++;
       continue;
     }
@@ -83,7 +96,7 @@ export function buildQueue(
     queue.push({ number: issue.number, title: issue.title });
 
     // Seed pending if new
-    if (prev === "pending" || !state.issues[String(issue.number)]) {
+    if (prev === "pending" || !issueState) {
       updateIssue(String(issue.number), "pending", { title: issue.title });
     }
   }
@@ -135,9 +148,12 @@ export async function processQueue(
     log(
       `[${index + 1}/${queue.length}] #${entry.number}: ${entry.title}${concurrency > 1 ? ` (slot ${slot}/${concurrency})` : ""}`,
     );
+    const prevAttempts =
+      readState().issues[num]?.attempts ?? 0;
     await updateIssueAsync(num, "in_progress", {
       started_at: new Date().toISOString(),
       slot: concurrency > 1 ? slot : undefined,
+      attempts: prevAttempts + 1,
     });
 
     try {
@@ -148,6 +164,7 @@ export async function processQueue(
         await updateIssueAsync(num, "failed", {
           phase: autodevResult.phase,
           duration_s: autodevResult.duration_s,
+          last_failed_phase: autodevResult.phase,
         });
         log(
           `#${entry.number} — FAILED at ${autodevResult.phase} (${formatDuration(autodevResult.duration_s)})`,
@@ -193,6 +210,7 @@ export async function processQueue(
         await updateIssueAsync(num, "failed", {
           phase: postResult.phase,
           duration_s: totalDuration,
+          last_failed_phase: postResult.phase,
           review_brief_path: postResult.review_brief_path,
           panel_verdict: postResult.panel_verdict,
           token_usage: postResult.token_usage,

@@ -32,11 +32,16 @@ export function runAutoDev(
 ): Promise<WorkerResult> {
   const start = Date.now();
 
+  // Strip CLAUDECODE env var to prevent Claude CLI confusion when spawned
+  // from within a Claude Code session
+  const env = { ...process.env };
+  delete env.CLAUDECODE;
+
   return new Promise((resolve) => {
     const proc = spawn(
       path.join(scriptDir, "auto-dev.sh"),
       ["--issue", String(issueNumber)],
-      { cwd: repoRoot, stdio: ["ignore", "pipe", "pipe"] },
+      { cwd: repoRoot, env, stdio: ["ignore", "pipe", "pipe"] },
     );
 
     const timeout = setTimeout(() => {
@@ -51,13 +56,23 @@ export function runAutoDev(
       }, 5000);
     }, TIMEOUT_MS);
 
-    // Drain output to prevent backpressure (output goes to auto-dev's own logs)
-    proc.stdout.resume();
-    proc.stderr.resume();
+    // Capture stdout for logging, capture stderr for error diagnosis
+    let stdout = "";
+    let stderr = "";
+    proc.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    proc.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
 
     proc.on("close", (code) => {
       clearTimeout(timeout);
       const duration_s = Math.round((Date.now() - start) / 1000);
+
+      // Log captured output for diagnosis
+      if (stdout.trim()) log(`auto-dev.sh stdout:\n${stdout.slice(-2000)}`);
+      if (stderr.trim()) log(`auto-dev.sh stderr:\n${stderr.slice(-2000)}`);
 
       // Timeout: SIGTERM gives code null or 143
       if (code === null || code > 128) {
@@ -67,6 +82,7 @@ export function runAutoDev(
 
       // Crashed
       if (code !== 0) {
+        log(`auto-dev.sh exited with code ${code}`);
         resolve({ status: "failed", phase: "crashed", duration_s });
         return;
       }
@@ -89,7 +105,7 @@ export function runAutoDev(
     proc.on("error", (err) => {
       clearTimeout(timeout);
       const duration_s = Math.round((Date.now() - start) / 1000);
-      console.error(`[nightshift] Failed to spawn auto-dev.sh: ${err.message}`);
+      log(`Failed to spawn auto-dev.sh: ${err.message}`);
       resolve({ status: "failed", phase: "crashed", duration_s });
     });
   });

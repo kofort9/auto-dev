@@ -140,22 +140,29 @@ echo "$ISSUES" | jq -c '.[]' | while read -r issue; do
   log "═══════════════════════════════════════════"
 
   # -------------------------------------------------------------------------
-  # Phase 2: Setup worktree
+  # Phase 2: Setup worktree (always start clean)
   # -------------------------------------------------------------------------
   log "Phase 2: Setting up worktree at $WORKTREE..."
 
+  git fetch origin
+
+  # Clean up any stale state from prior runs
   if [[ -d "$WORKTREE" ]]; then
-    log "Worktree already exists at $WORKTREE — reusing"
-    cd "$WORKTREE"
-  else
-    git fetch origin
-    git worktree add "$WORKTREE" origin/main
-    cd "$WORKTREE"
-    git checkout -b "$BRANCH"
-    # Symlink node_modules from main repo
-    if [[ -d "$TARGET_REPO/node_modules" ]]; then
-      ln -s "$TARGET_REPO/node_modules" "$WORKTREE/node_modules"
-    fi
+    log "  Removing stale worktree at $WORKTREE"
+    git worktree remove --force "$WORKTREE" 2>/dev/null || rm -rf "$WORKTREE"
+    git worktree prune
+  fi
+  git branch -D "$BRANCH" 2>/dev/null && log "  Removed stale local branch $BRANCH" || true
+  git push origin --delete "$BRANCH" 2>/dev/null && log "  Removed stale remote branch $BRANCH" || true
+
+  # Create fresh worktree from origin/main
+  git worktree add "$WORKTREE" origin/main
+  cd "$WORKTREE"
+  git checkout -b "$BRANCH"
+
+  # Symlink node_modules from main repo
+  if [[ -d "$TARGET_REPO/node_modules" ]]; then
+    ln -s "$TARGET_REPO/node_modules" "$WORKTREE/node_modules"
   fi
 
   if [[ "$DRY_RUN" == true ]]; then
