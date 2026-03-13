@@ -1,0 +1,32 @@
+{
+  "name": "auto-dev",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Autonomous dev pipeline: bugbot scanner + nightshift job queue",
+  "type": "module",
+  "workspaces": ["bugbot", "nightshift"],
+  "scripts": {
+    "build": "tsc -b bugbot nightshift",
+    "lint": "eslint bugbot/src nightshift/src",
+    "lint:fix": "eslint bugbot/src nightshift/src --fix",
+    "format": "prettier --write \"bugbot/src/**/*.ts\" \"nightshift/src/**/*.ts\"",
+    "format:check": "prettier --check \"bugbot/src/**/*.ts\" \"nightshift/src/**/*.ts\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "verify": "npm run format && npm run build && npm run lint && npm test"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.4.0",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.57.0",
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.15"
+  }
+}

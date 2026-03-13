@@ -1,0 +1,62 @@
+# Nightshift — auto-dev pipeline CLI
+# Source this from .zshrc: source ~/Repos/auto-dev/nightshift/nightshift.zsh
+
+nightshift() {
+  local repo="$HOME/Repos/auto-dev"
+  export TARGET_REPO="$HOME/Repos/nonprofit-vetting-engine"
+  local -a ns=(npx tsx nightshift/src/index.ts)
+
+  case "${1:-}" in
+    start)
+      if tmux has-session -t nightshift 2>/dev/null; then
+        echo "Already running. Use 'nightshift' to view."
+        return 1
+      fi
+      # Only remove lock if the owning process is dead
+      if [[ -f ~/.auto-dev/nightshift.lock ]]; then
+        local lock_pid
+        lock_pid=$(cat ~/.auto-dev/nightshift.lock 2>/dev/null)
+        if [[ -n "$lock_pid" ]] && kill -0 "$lock_pid" 2>/dev/null; then
+          echo "Lock held by PID $lock_pid. Use 'nightshift stop' first."
+          return 1
+        fi
+        rm -f ~/.auto-dev/nightshift.lock
+      fi
+      tmux new -d -s nightshift \; \
+        set-option -t nightshift remain-on-exit on
+      tmux send-keys -t nightshift \
+        "cd $repo && ${ns[*]} run ${@:2}" Enter
+      sleep 1
+      tmux new-window -t nightshift -n dash \
+        "cd $repo && python3 nightshift/dashboard/nightshift-dash.py"
+      echo "Nightshift started. Use 'nightshift' to view dashboard."
+      ;;
+    stop)
+      tmux kill-session -t nightshift 2>/dev/null && echo "Stopped." || echo "Not running."
+      ;;
+    status)
+      cd "$repo" && "${ns[@]}" status
+      ;;
+    promote)
+      cd "$repo" && "${ns[@]}" promote
+      ;;
+    log)
+      tail -f ~/.auto-dev/nightshift.log
+      ;;
+    *)
+      if tmux has-session -t nightshift 2>/dev/null; then
+        tmux attach -t nightshift:dash
+      else
+        echo "No nightshift session running."
+        echo ""
+        echo "  nightshift start                Start pipeline + dashboard"
+        echo "  nightshift start --fresh        Start clean (ignore prior state)"
+        echo "  nightshift start --concurrency 3  Parallel workers"
+        echo "  nightshift status               One-shot status"
+        echo "  nightshift log                  Tail the log"
+        echo "  nightshift stop                 Kill the session"
+        echo "  nightshift promote              Label next wave of issues"
+      fi
+      ;;
+  esac
+}
