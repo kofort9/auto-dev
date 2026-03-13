@@ -21,7 +21,7 @@ interface GhIssueWithBody {
 }
 
 const DEP_PATTERN = /(?:depends on|blocked by|prerequisite[^\n]*)\s*#(\d+)/gi;
-const SKIP_LABELS = /auto-ready|auto-pr-ready/;
+const SKIP_LABELS = /auto-ready|auto-pr-ready|nightshift/;
 const HUMAN_LABELS = /research|design/;
 
 export function promoteNextWave(repoRoot: string): void {

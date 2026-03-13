@@ -47,7 +47,7 @@ export function discoverIssues(
       "issue",
       "list",
       "--label",
-      "auto-ready",
+      "nightshift",
       "--state",
       "open",
       "--json",

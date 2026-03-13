@@ -113,7 +113,7 @@ if [[ -n "$SINGLE_ISSUE" ]]; then
   ISSUES=$(gh issue view "$SINGLE_ISSUE" --json number,title,body)
   ISSUES="[$ISSUES]"
 else
-  ISSUES=$(gh issue list --label auto-ready --state open --json number,title,body --limit 5)
+  ISSUES=$(gh issue list --label nightshift --state open --json number,title,body --limit 5)
 fi
 
 ISSUE_COUNT=$(echo "$ISSUES" | jq 'length')

@@ -183,6 +183,7 @@ export function publishIssue(
     "bugbot",
     `bugbot:${finding.category}`,
     "auto-ready",
+    "nightshift",
     priority,
   ];
 

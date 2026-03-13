@@ -505,7 +505,7 @@ Logs available in \`~/.auto-dev/runs/\` with prefix \`${DATE}-${issueNumber}-\`.
         "edit",
         String(issueNumber),
         "--remove-label",
-        "auto-ready",
+        "auto-ready,nightshift",
         "--add-label",
         "auto-pr-ready",
       ],
