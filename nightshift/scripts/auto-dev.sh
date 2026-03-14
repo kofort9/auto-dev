@@ -55,7 +55,7 @@ mkdir -p "$LOG_DIR"
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-log() { echo "[auto-dev] $(date +%H:%M:%S) $*"; }
+log() { echo "[auto-dev] $(date +%H:%M:%S) $(printf '%s' "$*" | tr -d '\000-\037')"; }
 fail_issue() {
   local number="$1" label="$2" message="$3"
   gh issue edit "$number" --add-label "$label" --repo "$(gh repo view --json nameWithOwner -q .nameWithOwner)" 2>/dev/null || true
@@ -90,6 +90,9 @@ if [[ "$CLEANUP_ALL" == true ]]; then
 fi
 
 if [[ -n "$CLEANUP_ISSUE" ]]; then
+  if [[ ! "$CLEANUP_ISSUE" =~ ^[0-9]+$ ]]; then
+    log "Error: --cleanup requires an integer issue number"; exit 1
+  fi
   log "Cleaning up worktree for issue #$CLEANUP_ISSUE..."
   cd "$TARGET_REPO"
   wt="../auto-dev-$CLEANUP_ISSUE"

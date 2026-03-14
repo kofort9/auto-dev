@@ -239,13 +239,12 @@ Instructions:
         log(`  Pushed fix iteration ${i}.`);
       } else {
         log("  No changes from fix attempt — skipping commit.");
+        return { success: true, iterations: i };
       }
     } catch (err) {
       log(`  Commit/push failed: ${err}`);
       return { success: false, iterations: i };
     }
-
-    return { success: true, iterations: i };
   }
 
   return { success: false, iterations: MAX_FIX_ITERATIONS };
@@ -460,6 +459,6 @@ function extractJson(raw: string): string {
   const trimmed = raw.trim();
   if (trimmed.startsWith("[")) return trimmed;
   // Find JSON array in output
-  const match = trimmed.match(/\[[\s\S]*\]/);
+  const match = trimmed.match(/\[[\s\S]*?\]/);
   return match ? match[0] : "[]";
 }
