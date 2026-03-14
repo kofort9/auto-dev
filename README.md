@@ -43,6 +43,12 @@ Add the CLI functions to your shell:
 echo 'source /path/to/auto-dev/nightshift/nightshift.zsh' >> ~/.zshrc
 ```
 
+If you clone to a non-standard location, set `AUTO_DEV_REPO` to the repo root:
+
+```bash
+export AUTO_DEV_REPO=~/projects/auto-dev  # default: ~/Repos/auto-dev
+```
+
 ## Usage
 
 ### Bugbot (scan + file issues)

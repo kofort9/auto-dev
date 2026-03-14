@@ -7,6 +7,6 @@ describe("inputValidationScanner", () => {
   });
 
   // Integration test with real LLM is too expensive for CI.
-  // The scanner is validated via dry-run against the VE repo.
+  // The scanner is validated via dry-run against the target repo.
   // Unit tests cover the supporting functions (llm.test.ts).
 });

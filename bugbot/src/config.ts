@@ -10,31 +10,21 @@ export const SCAN_ROOT = resolve(
 );
 export const BUGBOT_ROOT = resolve(
   process.env.BUGBOT_ROOT ??
-    "~/Repos/auto-dev/bugbot",
+    path.resolve(import.meta.dirname, ".."),
 );
 export const STATE_DIR = resolve(process.env.BUGBOT_STATE ?? "~/.bugbot");
 
 // Checked top-to-bottom: first match wins. Specific files before globs.
+// Customize this for your project — list critical files as "high", supporting
+// modules as "medium", and everything else as "low". Higher-risk files require
+// higher confidence scores before bugbot will file an issue.
 export const RISK_CONTRACT: [RiskTier, string][] = [
-  // High: scoring, financial, server
-  ["high", "src/domain/nonprofit/scoring.ts"],
-  ["high", "src/domain/nonprofit/scoring-criteria.ts"],
-  ["high", "src/domain/nonprofit/scoring-math.ts"],
-  ["high", "src/domain/nonprofit/financial-averaging.ts"],
-  ["high", "src/domain/nonprofit/detect-red-flags.ts"],
-  ["high", "src/domain/nonprofit/sector-thresholds.ts"],
-  ["high", "src/data-sources/csv-data-store.ts"],
-  ["high", "src/data-sources/token-decomposer.ts"],
+  // High: core business logic, data processing, server entry points
   ["high", "src/server/**"],
-  // Medium: parsers, builders, remaining data-sources, gates
-  ["medium", "src/domain/nonprofit/xml-parser.ts"],
-  ["medium", "src/domain/nonprofit/local-profile-builder.ts"],
-  ["medium", "src/domain/nonprofit/classification-tag-builder.ts"],
+  // Medium: parsers, builders, data access layers
   ["medium", "src/data-sources/**"],
-  ["medium", "src/domain/gates/**"],
-  // Low: everything else
+  // Low: utilities, scripts, tests
   ["low", "src/core/**"],
-  ["low", "src/domain/discovery/**"],
   ["low", "scripts/**"],
   ["low", "tests/**"],
 ];
@@ -58,7 +48,7 @@ export const ALL_CATEGORIES: Category[] = [
   ...ALL_LLM_CATEGORIES,
 ];
 
-// Severity → GH priority label (matches VE repo's label scheme)
+// Severity → GH priority label (must match labels that exist on your target repo)
 export const SEVERITY_TO_PRIORITY: Record<string, string> = {
   critical: "priority:high",
   high: "priority:high",

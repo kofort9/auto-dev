@@ -13,8 +13,8 @@ const log = createLogger("scanner");
 export function ensureLatestMain(scanRoot: string): string {
   log("Fetching origin...");
   execFileSync("git", ["fetch", "origin"], { cwd: scanRoot });
-  // Use rev-parse on origin/main without checking out — avoids putting VE
-  // main worktree into detached HEAD (destructive if user is working there).
+  // Use rev-parse on origin/main without checking out — avoids putting the
+  // target repo's main worktree into detached HEAD (destructive if user is working there).
   const treeHash = execFileSync("git", ["rev-parse", "origin/main"], {
     cwd: scanRoot,
   })

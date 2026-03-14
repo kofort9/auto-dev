@@ -11,7 +11,7 @@ describe("selectAgents", () => {
 
   it("skips red-team and ml-specialist for unrelated files", () => {
     const { toRun, skipped } = selectAgents(["src/utils/helper.ts", "src/index.ts"]);
-    expect(toRun).toHaveLength(3);
+    expect(toRun).toHaveLength(4);
     expect(skipped).toHaveLength(2);
     expect(skipped.map((s) => s.name)).toContain("red-team");
     expect(skipped.map((s) => s.name)).toContain("ml-specialist");
@@ -48,41 +48,41 @@ describe("selectAgents", () => {
   });
 
   it("triggers ml-specialist for scoring files", () => {
-    const { toRun } = selectAgents(["src/domain/nonprofit/scoring.ts"]);
+    const { toRun } = selectAgents(["src/domain/scoring.ts"]);
     expect(toRun).toContain("ml-specialist");
   });
 
   it("triggers ml-specialist for threshold files", () => {
-    const { toRun } = selectAgents(["src/domain/nonprofit/sector-threshold.ts"]);
+    const { toRun } = selectAgents(["src/domain/sector-threshold.ts"]);
     expect(toRun).toContain("ml-specialist");
   });
 
   it("triggers ml-specialist for similarity files", () => {
-    const { toRun } = selectAgents(["src/domain/nonprofit/similar-orgs.ts"]);
+    const { toRun } = selectAgents(["src/domain/similar-orgs.ts"]);
     expect(toRun).toContain("ml-specialist");
   });
 
   it("triggers ml-specialist for confidence files", () => {
-    const { toRun } = selectAgents(["src/domain/nonprofit/confidence-calc.ts"]);
+    const { toRun } = selectAgents(["src/domain/confidence-calc.ts"]);
     expect(toRun).toContain("ml-specialist");
   });
 
   it("triggers ml-specialist for classification files", () => {
-    const { toRun } = selectAgents(["src/domain/nonprofit/classify-filing.ts"]);
+    const { toRun } = selectAgents(["src/domain/classify-filing.ts"]);
     expect(toRun).toContain("ml-specialist");
   });
 
   it("triggers ml-specialist for financial files", () => {
-    const { toRun } = selectAgents(["src/domain/nonprofit/financial-health.ts"]);
+    const { toRun } = selectAgents(["src/domain/financial-health.ts"]);
     expect(toRun).toContain("ml-specialist");
   });
 
   it("triggers both conditional agents when both patterns match", () => {
     const { toRun, skipped } = selectAgents([
       "src/auth/session-handler.ts",
-      "src/domain/nonprofit/scoring.ts",
+      "src/domain/scoring.ts",
     ]);
-    expect(toRun).toHaveLength(5);
+    expect(toRun).toHaveLength(6);
     expect(toRun).toContain("red-team");
     expect(toRun).toContain("ml-specialist");
     expect(skipped).toHaveLength(0);
@@ -90,7 +90,7 @@ describe("selectAgents", () => {
 
   it("handles empty file list", () => {
     const { toRun, skipped } = selectAgents([]);
-    expect(toRun).toHaveLength(3);
+    expect(toRun).toHaveLength(4);
     expect(skipped).toHaveLength(2);
   });
 

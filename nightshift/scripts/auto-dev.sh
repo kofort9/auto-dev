@@ -350,9 +350,9 @@ PROMPT_FOOTER
   log "All verification gates passed."
 
   # -------------------------------------------------------------------------
-  # Phase 6: Write sentinel — hand off to nightshift TS layer
+  # Handoff: Write sentinel — hand off to nightshift TS layer
   # -------------------------------------------------------------------------
-  log "Phase 6: Writing sentinel file..."
+  log "Handoff: Writing sentinel file..."
 
   # Collect changed files as JSON array
   CHANGED_FILES_JSON=$(git diff --name-only origin/main | jq -R -s 'split("\n") | map(select(length > 0))')
