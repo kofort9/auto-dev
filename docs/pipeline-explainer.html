@@ -410,21 +410,22 @@ graph TD
     </details>
     <details class="collapsible animate" style="--i:13">
       <summary><span class="tag tag--bash">3</span> &nbsp; Execute</summary>
-      <div class="body">Run <code>claude --print --permission-mode bypassPermissions</code> with the issue spec as prompt. Claude implements the fix, runs <code>npm run verify</code>.</div>
+      <div class="body">Run <code>claude --print --permission-mode bypassPermissions</code> with the issue spec as prompt. Claude implements the fix, runs <code>npm run verify</code>. Prompt includes scope constraints: no cascade deletions, replace references with inline defaults rather than deleting consuming code.</div>
     </details>
     <details class="collapsible animate" style="--i:14">
       <summary><span class="tag tag--bash">4</span> &nbsp; Simplify</summary>
-      <div class="body">Second Claude pass reviewing <code>git diff origin/main</code> against the spec. Simplifies for clarity, consistency, maintainability. No feature changes.</div>
+      <div class="body">Second Claude pass reviewing <code>git diff origin/main</code> against the spec. Simplifies for clarity, consistency, maintainability. No feature changes. Scope-limited: will not delete functions or logic blocks the spec didn't ask to remove.</div>
     </details>
     <details class="collapsible animate" style="--i:15">
       <summary><span class="tag tag--bash">5</span> &nbsp; Verify</summary>
       <div class="body">
         Guardrails gate:
-        <br>&bull; <code>npm run verify</code> must pass
-        <br>&bull; Files changed &le; 15
-        <br>&bull; Lines changed &le; 500
-        <br>&bull; No unexpected dependency changes
-        <br>Writes sentinel JSON on success.
+        <br>&bull; Gate 1: <code>npm run verify</code> must pass
+        <br>&bull; Gate 2: Files changed &le; 15
+        <br>&bull; Gate 3: Lines changed &le; 500
+        <br>&bull; Gate 4: No unexpected dependency changes (spec must use add/install/require + dependency noun)
+        <br>&bull; Gate 5: Deletion budget &mdash; net deletions &le; 15, gross deletions &le; 40 (unless spec explicitly requests large-scale removal)
+        <br>Writes sentinel JSON (with <code>net_deletions</code> and <code>head_sha</code>) on success.
       </div>
     </details>
 
@@ -437,9 +438,10 @@ graph TD
       <summary><span class="tag tag--ts">6</span> &nbsp; Panel Review</summary>
       <div class="body">
         Multi-agent review using Claude CLI:
-        <br>&bull; <strong>Always</strong>: code-reviewer, spec-compliance-checker, test-coverage-checker
+        <br>&bull; <strong>Always</strong>: code-reviewer, spec-compliance-checker, test-coverage-checker, scope-checker
         <br>&bull; <strong>Conditional</strong>: red-team (auth/security files), ml-specialist (scoring/threshold files)
         <br>Agents run in parallel. Findings are deduplicated, scored, and compiled into a ReviewBrief.
+        <br><br>Scope-checker verifies the diff doesn't change anything the spec didn't ask for. Detects cascade deletions and out-of-scope modifications.
       </div>
     </details>
     <details class="collapsible animate" style="--i:18">
@@ -522,6 +524,7 @@ graph TD
   SEFF -->|"medium"| HUM
 
   CAT -->|"tradeoff, question, spec_gap"| HUM
+  CAT -->|"scope_violation"| HUM
 
   CAT -->|"false_positive"| FP["false_positive"]
 
@@ -549,7 +552,7 @@ graph TD
       </div>
       <div class="card animate" style="--i:29; border-left: 3px solid var(--red);">
         <div class="card-label" style="color:var(--red)">Needs Human</div>
-        <p>Scope creep, removed functionality, architectural choices, design tradeoffs, spec gaps, uncertain critical findings.</p>
+        <p>Scope violations, cascade deletions, removed functionality, architectural choices, design tradeoffs, spec gaps, uncertain critical findings.</p>
       </div>
       <div class="card animate" style="--i:30; border-left: 3px solid var(--orange);">
         <div class="card-label" style="color:var(--orange)">False Positive</div>

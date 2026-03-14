@@ -10,7 +10,7 @@ nightshift() {
   local repo="${AUTO_DEV_REPO:-$HOME/Repos/auto-dev}"
   # Source .env if it exists (provides TARGET_REPO, STATE_DIR, etc.)
   [[ -f "$repo/.env" ]] && source "$repo/.env"
-  export TARGET_REPO="${TARGET_REPO:-$HOME/Repos/nonprofit-vetting-engine}"
+  export TARGET_REPO="${TARGET_REPO:?Set TARGET_REPO in .env}"
   export STATE_DIR="${STATE_DIR:-$HOME/.auto-dev}"
   local -a ns=(npx tsx nightshift/src/index.ts)
 

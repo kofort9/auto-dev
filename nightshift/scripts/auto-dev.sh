@@ -14,7 +14,7 @@ unset CLAUDECODE 2>/dev/null || true
 #   scripts/auto-dev.sh --cleanup-all   # Remove all auto-dev worktrees
 #   scripts/auto-dev.sh --dry-run       # Discover + setup only, no execution
 
-TARGET_REPO="${TARGET_REPO:-$HOME/Repos/nonprofit-vetting-engine}"
+TARGET_REPO="${TARGET_REPO:?Set TARGET_REPO in .env}"
 LOG_DIR="${STATE_DIR:-$HOME/.auto-dev}/runs"
 DATE="$(date +%Y-%m-%d)"
 DRY_RUN=false
@@ -180,7 +180,7 @@ echo "$ISSUES" | jq -c '.[]' | while read -r issue; do
   # Write prompt to temp file to avoid shell expansion of $BODY (security: prevents command injection)
   EXECUTE_PROMPT=$(mktemp "$LOG_DIR/prompt-execute-XXXXXX.md")
   cat > "$EXECUTE_PROMPT" <<'PROMPT_HEADER'
-You are working on an issue in the nonprofit-vetting-engine repo. Here is the full spec:
+You are working on an issue in the target repo. Here is the full spec:
 
 PROMPT_HEADER
   printf '%s' "$BODY" >> "$EXECUTE_PROMPT"
@@ -284,6 +284,11 @@ PROMPT_FOOTER
   if git diff origin/main --name-only | grep -qE '^package(-lock)?\.json$'; then
     # Require an explicit positive request — e.g., "add dependency X", "install package Y"
     # Must NOT match negations like "no new dependencies" or "without adding dependencies"
+    # NOTE: Known limitation — the regex does not enforce negation detection.
+    # "do not add any dependencies" would match because "add" and "dependencies"
+    # co-occur within 30 chars. This is an accepted tradeoff: bugbot-generated specs
+    # are unlikely to contain that phrasing, and adding negation lookahead adds
+    # complexity for a marginal false-positive case.
     if printf '%s' "$BODY" | grep -qiE '\b(add|install|require|include|introduce)\b.{0,30}\b(dependency|dependencies|package|module|library)\b'; then
       log "  ✓ Dependency changes detected, spec explicitly requests adding dependencies"
     else

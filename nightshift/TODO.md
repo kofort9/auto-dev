@@ -3,7 +3,7 @@
 ## References
 
 - **Auto-dev runbook**: `docs/auto-dev-runbook.md` — what works, what breaks, rework log
-- **Code Factory gap analysis**: `~/Documents/Obsidian/sources/x/2026-03-11-ryancarson-code-factory-agent-setup--reflection.md`
+- **Code Factory patterns** (from external research):
   - SHA discipline (pin review state to PR head commit)
   - Machine-readable risk contract (tier by file path)
   - Harness-gap loop (every regression becomes a test case)

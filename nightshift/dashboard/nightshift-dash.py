@@ -35,7 +35,7 @@ STATE_DIR = Path(os.environ.get("NIGHTSHIFT_STATE_DIR", str(Path.home() / ".auto
 STATE_FILE = STATE_DIR / "nightshift-state.json"
 LOG_FILE = STATE_DIR / "nightshift.log"
 SUMMARY_JSONL = STATE_DIR / "runs" / "summary.jsonl"
-REPO_DIR = Path(os.environ.get("TARGET_REPO", os.environ.get("NIGHTSHIFT_REPO_DIR", str(Path.home() / "Repos" / "nonprofit-vetting-engine"))))
+REPO_DIR = Path(os.environ.get("TARGET_REPO", os.environ.get("NIGHTSHIFT_REPO_DIR", "")))
 
 REFRESH_INTERVAL = 4
 PHASES = ["setup", "execute", "simplify", "verify", "panel-review", "fix", "publish"]

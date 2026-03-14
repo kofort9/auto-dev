@@ -25,8 +25,8 @@ trap 'echo "[nightshift] ERR at line $LINENO: command exited with $?" >&2' ERR
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 NIGHTSHIFT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-TARGET_REPO="${TARGET_REPO:-$HOME/Repos/nonprofit-vetting-engine}"
-STATE_DIR="$HOME/.auto-dev"
+TARGET_REPO="${TARGET_REPO:?Set TARGET_REPO in .env}"
+STATE_DIR="${STATE_DIR:-$HOME/.auto-dev}"
 STATE_FILE="$STATE_DIR/nightshift-state.json"
 SUMMARY_JSONL="$STATE_DIR/runs/summary.jsonl"
 LOG_FILE="$STATE_DIR/nightshift.log"

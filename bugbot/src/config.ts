@@ -6,7 +6,7 @@ function resolve(p: string): string {
 }
 
 export const SCAN_ROOT = resolve(
-  process.env.SCAN_ROOT ?? "~/Repos/nonprofit-vetting-engine",
+  process.env.SCAN_ROOT ?? process.env.TARGET_REPO ?? "",
 );
 export const BUGBOT_ROOT = resolve(
   process.env.BUGBOT_ROOT ??

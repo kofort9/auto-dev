@@ -32,7 +32,7 @@ import { createLogger } from "./log.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const NIGHTSHIFT_ROOT = path.resolve(__dirname, ".."); // nightshift/
 const SCRIPT_DIR = path.join(NIGHTSHIFT_ROOT, "scripts"); // nightshift/scripts/
-const TARGET_REPO_DEFAULT = "~/Repos/nonprofit-vetting-engine";
+const TARGET_REPO_DEFAULT = ""; // Set TARGET_REPO in .env
 const REPO_ROOT = path.resolve(
   (process.env.TARGET_REPO ?? TARGET_REPO_DEFAULT).replace(/^~/, process.env.HOME ?? ""),
 );
