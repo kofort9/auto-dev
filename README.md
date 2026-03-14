@@ -109,7 +109,7 @@ The queue builder converts labeled GitHub issues into a prioritized work queue; 
 | `SCAN_ROOT` | Same as `TARGET_REPO` | Bugbot scan target (if different) |
 | `BUGBOT_ROOT` | `~/Repos/auto-dev/bugbot` | Bugbot source directory |
 
-The circuit breaker (`--max-failures N`, default 5) halts the queue after N consecutive failures. A PID lock at `$STATE_DIR/nightshift.pid` prevents overlapping runs.
+The circuit breaker (`--max-failures N`, default 3) halts the queue after N consecutive systemic failures (crashes, timeouts, setup errors). Spec-level failures (verify gate, panel review) reset the counter. A PID lock at `$STATE_DIR/nightshift.pid` prevents overlapping runs.
 
 ## Wave Promotion
 

@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>auto-dev Pipeline — Visual Explainer</title>
+<meta name="description" content="Interactive visual guide to the auto-dev autonomous development pipeline: bugbot scans, nightshift implements, self-review triages.">
+<meta property="og:title" content="auto-dev Pipeline — Visual Explainer">
+<meta property="og:description" content="12-phase autonomous development pipeline. Bugbot scans for issues, nightshift implements fixes with Claude Code, self-review triages PRs.">
+<meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -76,6 +80,12 @@
     padding: 40px;
   }
 
+  /* Accessibility: visually hidden but available to screen readers */
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+
   @keyframes fadeUp {
     from { opacity: 0; transform: translateY(12px); }
     to { opacity: 1; transform: translateY(0); }
@@ -110,7 +120,9 @@
   .toc {
     position: sticky; top: 24px; align-self: start;
     padding: 14px 0; grid-row: 1 / -1;
-    max-height: calc(100dvh - 48px); overflow-y: auto;
+    max-height: calc(100vh - 48px);
+    max-height: calc(100dvh - 48px);
+    overflow-y: auto;
   }
   .toc::-webkit-scrollbar { width: 3px; }
   .toc::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 2px; }
@@ -136,6 +148,8 @@
       -webkit-overflow-scrolling: touch; background: var(--bg);
       border-bottom: 1px solid var(--border); padding: 10px 0;
       margin: 0 -16px; padding-left: 16px; padding-right: 16px; grid-row: auto;
+      mask-image: linear-gradient(to right, black 85%, transparent);
+      -webkit-mask-image: linear-gradient(to right, black 85%, transparent);
     }
     .toc::-webkit-scrollbar { display: none; }
     .toc-title { display: none; }
@@ -175,13 +189,29 @@
     text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px;
     display: flex; align-items: center; gap: 8px;
   }
-  .card-label::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
   .card h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
   .card p { font-size: 13px; line-height: 1.6; color: var(--text-dim); }
   .card code {
     font-family: var(--font-mono); font-size: 11px;
     background: var(--cyan-dim); color: var(--cyan); padding: 1px 5px; border-radius: 3px;
   }
+
+  /* Legend swatches — shape + color for accessibility */
+  .legend-swatch { width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; color: #fff; }
+  .legend-swatch--bash { background: var(--bash); border-radius: 2px; }
+  .legend-swatch--ts { background: var(--ts); border-radius: 50%; }
+  .legend-swatch--review { background: var(--review); transform: rotate(45deg); }
+  .legend-swatch--review span { transform: rotate(-45deg); }
+  .legend-swatch--green { background: var(--green); border-radius: 2px; }
+  .legend-swatch--orange { background: var(--orange); border-radius: 50%; }
+  .legend-swatch--red { background: var(--red); clip-path: polygon(50% 0%, 0% 100%, 100% 100%); }
+
+  /* Card label icons — shape prefix instead of color-only dot */
+  .card-label--bash::before { content: 'B'; display: inline-flex; width: 16px; height: 16px; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; background: var(--bash); color: #fff; border-radius: 2px; }
+  .card-label--ts::before { content: 'T'; display: inline-flex; width: 16px; height: 16px; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; background: var(--ts); color: #fff; border-radius: 50%; }
+  .card-label--review::before { content: 'R'; display: inline-flex; width: 16px; height: 16px; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; background: var(--review); color: #fff; border-radius: 2px; transform: rotate(45deg); }
+  .card-label--review span { display: inline-block; }
+  .card-label--infra::before { content: 'I'; display: inline-flex; width: 16px; height: 16px; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; background: var(--cyan); color: #fff; border-radius: 2px; }
 
   /* Phase grid */
   .phase-grid {
@@ -220,12 +250,13 @@
     border-radius: 6px; padding: 2px;
   }
   .zoom-controls button {
-    width: 28px; height: 28px; border: none; background: transparent;
+    min-width: 44px; min-height: 44px; border: none; background: transparent;
     color: var(--text-dim); font-family: var(--font-mono); font-size: 14px;
     cursor: pointer; border-radius: 4px; display: flex; align-items: center;
     justify-content: center; transition: background 0.15s ease, color 0.15s ease;
   }
   .zoom-controls button:hover { background: var(--border); color: var(--text); }
+  .zoom-controls button:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
   .mermaid-wrap.is-zoomed { cursor: grab; }
   .mermaid-wrap.is-panning { cursor: grabbing; user-select: none; }
 
@@ -238,7 +269,6 @@
   /* Legend */
   .legend { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 24px; }
   .legend-item { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
-  .legend-swatch { width: 12px; height: 12px; border-radius: 3px; }
 
   /* Collapsible */
   details.collapsible { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
@@ -282,7 +312,7 @@
 
 <div class="wrap">
 
-  <nav class="toc" id="toc">
+  <nav class="toc" id="toc" aria-label="Table of contents">
     <div class="toc-title">Contents</div>
     <a href="#s1">Overview</a>
     <a href="#s2">Pipeline Flow</a>
@@ -291,7 +321,8 @@
     <a href="#s5">Self-Review (10-12)</a>
     <a href="#s6">Classification</a>
     <a href="#s7">Labels</a>
-    <a href="#s8">Morning Summary</a>
+    <a href="#s8">Infrastructure</a>
+    <a href="#s9">Morning Summary</a>
   </nav>
 
   <div class="main">
@@ -303,7 +334,8 @@
       <strong>bugbot</strong> scans the codebase for issues and files them on GitHub.
       <strong>nightshift</strong> picks them up and implements fixes autonomously using Claude Code,
       then self-reviews its own PRs and triages them for the morning summary.
-      12 phases, zero human intervention overnight.
+      The wave promoter re-queues unblocked issues, creating a self-sustaining loop.
+      12+ phases, zero human intervention overnight.
     </p>
 
     <!-- ─── OVERVIEW ─── -->
@@ -311,64 +343,75 @@
 
     <div class="phase-grid">
       <div class="card animate" style="--i:4">
-        <div class="card-label" style="color:var(--bash)">Bugbot</div>
+        <div class="card-label card-label--bash" style="color:var(--bash)">Bugbot</div>
         <h3>Code Scanner</h3>
-        <p>Scans for dead code, type holes, missing tests, stale comments, input validation gaps. Files findings as GitHub issues with <code>nightshift</code> label.</p>
+        <p>Scans for dead code, type holes, missing tests, stale comments, input validation gaps. Files findings as GitHub issues with <code>nightshift</code>, <code>auto-ready</code>, <code>bugbot</code>, <code>bugbot:{category}</code>, and <code>priority:{level}</code> labels.</p>
       </div>
       <div class="card animate" style="--i:5">
-        <div class="card-label" style="color:var(--ts)">Nightshift</div>
+        <div class="card-label card-label--ts" style="color:var(--ts)">Nightshift</div>
         <h3>Job Queue</h3>
-        <p>Picks up <code>nightshift</code>-labeled issues. Runs Claude Code headlessly in git worktrees. Produces draft PRs with panel review. Supports scheduling (<code>--at 2:00</code>) and concurrency (<code>--concurrency N</code>).</p>
+        <p>Discovers <code>nightshift</code>-labeled issues (max 50 per run). Runs Claude Code headlessly in isolated git worktrees with a 90-minute timeout per issue. Supports scheduling (<code>--at 2:00</code>) and concurrency (<code>--concurrency N</code>) via a semaphore-based worker pool.</p>
       </div>
       <div class="card animate" style="--i:6">
-        <div class="card-label" style="color:var(--review)">Self-Review</div>
+        <div class="card-label card-label--review" style="color:var(--review)">Self-Review</div>
         <h3>Auto-Triage</h3>
-        <p>Reviews its own PRs after all issues are processed. Auto-fixes mechanical issues. Flags scope/design questions for human review.</p>
+        <p>Reviews its own PRs after all issues are processed (once per batch, each PR individually). Auto-fixes mechanical issues. Flags scope/design questions for human review.</p>
       </div>
     </div>
 
     <!-- ─── PIPELINE FLOW ─── -->
     <div id="s2" class="sec-head animate" style="--i:7">Pipeline Flow</div>
 
-    <div class="mermaid-wrap animate" style="--i:8">
+    <figure class="mermaid-wrap animate" style="--i:8" role="img" aria-label="Pipeline flow diagram showing 12+ phases: bugbot scan creates GitHub issues, queue.ts discovers and prioritizes them, auto-dev.sh runs phases 2-5 in a worktree, worker.ts runs phases 6-9 for panel review and PR creation, pr-self-review.ts runs phases 10-12 for auto-triage, and the wave promoter feeds unblocked issues back into the queue.">
+      <figcaption class="sr-only">Pipeline flow from bugbot scan through discovery, bash execution, TypeScript panel review, self-review triage, and wave promotion feedback loop.</figcaption>
       <div class="zoom-controls">
-        <button onclick="zoomDiagram(this, 1.2)" title="Zoom in">+</button>
-        <button onclick="zoomDiagram(this, 0.8)" title="Zoom out">&minus;</button>
-        <button onclick="resetZoom(this)" title="Reset zoom">&#8634;</button>
+        <button onclick="zoomDiagram(this, 1.2)" title="Zoom in" aria-label="Zoom in">+</button>
+        <button onclick="zoomDiagram(this, 0.8)" title="Zoom out" aria-label="Zoom out">&minus;</button>
+        <button onclick="resetZoom(this)" title="Reset zoom" aria-label="Reset zoom">&#8634;</button>
       </div>
       <pre class="mermaid">
 graph TD
   BB["Bugbot Scan"] --> ISS["GitHub Issue"]
-  ISS --> D["Phase 1: Discover"]
+  ISS --> D["Phase 1: Discover (queue.ts)"]
 
   subgraph bash["auto-dev.sh (Bash)"]
-    D --> S["Phase 2: Setup Worktree"]
-    S --> E["Phase 3: Execute"]
+    S["Phase 2: Setup Worktree"] --> E["Phase 3: Execute"]
     E --> SM["Phase 4: Simplify"]
     SM --> V["Phase 5: Verify"]
   end
 
+  D --> S
   V --> SNT["Write Sentinel JSON"]
 
   subgraph ts["worker.ts (TypeScript)"]
     SNT --> PR["Phase 6: Panel Review"]
-    PR --> SF["Phase 6.5: Simplify Filter"]
+    PR -->|pass| SF["Phase 6.5: Simplify Filter"]
+    PR -->|fail| PFAIL["Pipeline Stopped"]
     SF --> FX["Phase 7: Fix Findings"]
     FX --> RV["Phase 8: Re-verify"]
     RV --> PB["Phase 9: Publish Draft PR"]
   end
 
-  PB --> SR["Phase 10: Self-Review"]
+  PB --> P10["Phase 10: Self-Review"]
 
   subgraph rev["pr-self-review.ts"]
-    SR --> AF["Phase 11: Auto-Fix Loop"]
-    AF --> TR["Phase 12: Triage"]
+    P10 --> PRE["Phase 12a: Pre-check Triage"]
+    PRE -->|auto_fixable| AF["Phase 11: Auto-Fix Loop"]
+    PRE -->|clean / false_positive| DONE["Auto-Approved"]
+    PRE -->|needs_human| HPRE["Needs Human"]
+    AF --> REREV["Re-review Diff"]
+    REREV --> TR["Phase 12: Final Triage"]
   end
 
   TR --> OUT{Outcome}
   OUT -->|clean| APR["Auto-Approved"]
   OUT -->|fixed| SFX["Self-Fixed"]
   OUT -->|scope issue| HUM["Needs Human"]
+  OUT -.->|"error (reserved)"| RFAIL["Review Failed"]
+
+  APR --> WP["Wave Promoter"]
+  SFX --> WP
+  WP -->|"unblocked issues"| ISS
 
   classDef bashNode fill:#f59e0b22,stroke:#f59e0b
   classDef tsNode fill:#3b82f622,stroke:#3b82f6
@@ -376,33 +419,35 @@ graph TD
   classDef greenNode fill:#22c55e22,stroke:#22c55e
   classDef orangeNode fill:#f9731622,stroke:#f97316
   classDef redNode fill:#ef444422,stroke:#ef4444
+  classDef cyanNode fill:#22d3ee22,stroke:#22d3ee
 
-  class D,S,E,SM,V bashNode
-  class PR,SF,FX,RV,PB tsNode
-  class SR,AF,TR revNode
-  class APR greenNode
+  class S,E,SM,V bashNode
+  class D,PR,SF,FX,RV,PB tsNode
+  class P10,PRE,AF,REREV,TR revNode
+  class APR,DONE greenNode
   class SFX orangeNode
-  class HUM redNode
+  class HUM,HPRE,PFAIL,RFAIL redNode
+  class WP cyanNode
       </pre>
-    </div>
+    </figure>
 
     <div class="legend animate" style="--i:9">
-      <div class="legend-item"><div class="legend-swatch" style="background:var(--bash)"></div> Bash (auto-dev.sh)</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:var(--ts)"></div> TypeScript (worker.ts)</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:var(--review)"></div> Self-Review (pr-self-review.ts)</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:var(--green)"></div> Auto-approved</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:var(--orange)"></div> Self-fixed</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:var(--red)"></div> Needs human</div>
+      <div class="legend-item"><div class="legend-swatch legend-swatch--ts" aria-hidden="true"></div> Queue + TS (queue.ts, worker.ts)</div>
+      <div class="legend-item"><div class="legend-swatch legend-swatch--bash" aria-hidden="true"></div> Bash (auto-dev.sh)</div>
+      <div class="legend-item"><div class="legend-swatch legend-swatch--review" aria-hidden="true"></div> Self-Review (pr-self-review.ts)</div>
+      <div class="legend-item"><div class="legend-swatch legend-swatch--green" aria-hidden="true"></div> Auto-approved</div>
+      <div class="legend-item"><div class="legend-swatch legend-swatch--orange" aria-hidden="true"></div> Self-fixed</div>
+      <div class="legend-item"><div class="legend-swatch legend-swatch--red" aria-hidden="true"></div> Needs human / Failed</div>
     </div>
 
     <!-- ─── BASH PHASES ─── -->
-    <div id="s3" class="sec-head animate" style="--i:10"><span class="tag tag--bash">bash</span> &nbsp; Phases 1-5 — auto-dev.sh</div>
+    <div id="s3" class="sec-head animate" style="--i:10"><span class="tag tag--bash">bash</span> &nbsp; Phases 1-5</div>
 
-    <p class="desc">These phases run in a bash script. Claude Code is invoked headlessly to implement the fix in a fresh git worktree.</p>
+    <p class="desc">Phase 1 runs in TypeScript (<code>queue.ts</code>). Phases 2-5 run in a bash script (<code>auto-dev.sh</code>). Claude Code is invoked headlessly to implement the fix in a fresh git worktree. Each issue has a 90-minute timeout and up to 3 retry attempts.</p>
 
     <details class="collapsible animate" style="--i:11">
-      <summary><span class="tag tag--bash">1</span> &nbsp; Discover</summary>
-      <div class="body">Find <code>nightshift</code>-labeled issues via <code>gh issue list --label nightshift</code>. If <code>--issue</code> flag is passed, process a specific issue.</div>
+      <summary><span class="tag tag--ts">1</span> &nbsp; Discover</summary>
+      <div class="body">Runs in <code>queue.ts</code>, not bash. Fetches <code>nightshift</code>-labeled issues via <code>gh issue list --label nightshift --limit 50</code>. Builds a prioritized work queue. If <code>--issue</code> flag is passed, processes specific issues instead. The worker pool (<code>pool.ts</code>) distributes issues across <code>--concurrency N</code> parallel workers, each in an isolated git worktree.</div>
     </details>
     <details class="collapsible animate" style="--i:12">
       <summary><span class="tag tag--bash">2</span> &nbsp; Setup Worktree</summary>
@@ -425,14 +470,14 @@ graph TD
         <br>&bull; Gate 3: Lines changed &le; 500
         <br>&bull; Gate 4: No unexpected dependency changes (spec must use add/install/require + dependency noun)
         <br>&bull; Gate 5: Deletion budget &mdash; net deletions &le; 15, gross deletions &le; 40 (unless spec explicitly requests large-scale removal)
-        <br>Writes sentinel JSON (with <code>net_deletions</code> and <code>head_sha</code>) on success.
+        <br>Writes sentinel JSON (with <code>net_deletions</code> and <code>head_sha</code>) on success. This artifact is the handoff to the TypeScript layer.
       </div>
     </details>
 
     <!-- ─── TS PHASES ─── -->
     <div id="s4" class="sec-head animate" style="--i:16"><span class="tag tag--ts">ts</span> &nbsp; Phases 6-9 — worker.ts</div>
 
-    <p class="desc">These phases run in TypeScript. A multi-agent panel reviews the code, filters overengineered suggestions, applies fixes, and publishes a draft PR.</p>
+    <p class="desc">These phases run in TypeScript. A multi-agent panel reviews the code, filters overengineered suggestions, applies fixes, and publishes a draft PR. If the panel verdict is <code>fail</code>, the pipeline stops early &mdash; no PR is created.</p>
 
     <details class="collapsible animate" style="--i:17">
       <summary><span class="tag tag--ts">6</span> &nbsp; Panel Review</summary>
@@ -442,6 +487,7 @@ graph TD
         <br>&bull; <strong>Conditional</strong>: red-team (auth/security files), ml-specialist (scoring/threshold files)
         <br>Agents run in parallel. Findings are deduplicated, scored, and compiled into a ReviewBrief.
         <br><br>Scope-checker verifies the diff doesn't change anything the spec didn't ask for. Detects cascade deletions and out-of-scope modifications.
+        <br><br>If the panel verdict is <code>fail</code>, the pipeline stops &mdash; the issue is marked <code>auto-failed</code> and no PR is created.
       </div>
     </details>
     <details class="collapsible animate" style="--i:18">
@@ -450,25 +496,25 @@ graph TD
     </details>
     <details class="collapsible animate" style="--i:19">
       <summary><span class="tag tag--ts">7</span> &nbsp; Fix</summary>
-      <div class="body">Applies actionable findings (trivial/small effort) via a punch list prompt. The spec is passed as untrusted context — Claude follows only the punch list.</div>
+      <div class="body">Applies actionable findings (trivial/small effort) via a punch list prompt. The spec is passed as untrusted context &mdash; Claude follows only the punch list.</div>
     </details>
     <details class="collapsible animate" style="--i:20">
       <summary><span class="tag tag--ts">8</span> &nbsp; Re-verify</summary>
-      <div class="body"><code>npm run verify</code> after fixes. If it fails, the pipeline stops — no broken code gets published.</div>
+      <div class="body"><code>npm run verify</code> after fixes. If it fails, the pipeline stops &mdash; no broken code gets published.</div>
     </details>
     <details class="collapsible animate" style="--i:21">
       <summary><span class="tag tag--ts">9</span> &nbsp; Publish</summary>
       <div class="body">
         <code>git add -u</code>, commit, push, <code>gh pr create --draft</code>.
-        Posts ReviewBrief as PR comment. Updates labels: removes <code>auto-ready</code> + <code>nightshift</code>, adds <code>auto-pr-ready</code>.
-        <br><br>If no changes exist (empty diff), removes <code>auto-ready</code> + <code>nightshift</code> labels and auto-closes the issue with a comment instead of creating a PR.
+        Posts ReviewBrief as PR comment. Updates labels: removes <code>auto-ready</code> + <code>nightshift</code>, adds <code>auto-pr-ready</code>. PR body includes <code>Closes #N</code> so GitHub auto-closes the issue on merge.
+        <br><br>If no changes exist (empty diff), removes <code>auto-ready</code> + <code>nightshift</code> labels, posts an explanatory comment, and auto-closes the issue instead of creating a PR.
       </div>
     </details>
 
     <!-- ─── SELF-REVIEW PHASES ─── -->
     <div id="s5" class="sec-head animate" style="--i:22"><span class="tag tag--review">review</span> &nbsp; Phases 10-12 — pr-self-review.ts</div>
 
-    <p class="desc">After all issues are processed, nightshift reviews its own PRs. Runs once per batch, not per issue.</p>
+    <p class="desc">After all issues are processed, nightshift reviews its own PRs. Runs once per batch, then reviews each PR individually. Triage runs twice per PR: once as a pre-check to decide whether to attempt fixes, and again after fixes to confirm resolution.</p>
 
     <details class="collapsible animate" style="--i:23" open>
       <summary><span class="tag tag--review">10</span> &nbsp; Self-Review</summary>
@@ -478,38 +524,49 @@ graph TD
       </div>
     </details>
     <details class="collapsible animate" style="--i:24" open>
+      <summary><span class="tag tag--review">12a</span> &nbsp; Pre-check Triage</summary>
+      <div class="body">
+        Deterministic classification (no LLM) runs <em>before</em> any fix attempt:
+        <br>&bull; No findings or all false_positive &rarr; skip fixes, go straight to <span class="tag tag--green">auto_approved</span>
+        <br>&bull; Any needs_human finding &rarr; skip fixes, mark <span class="tag tag--red">needs_human</span>
+        <br>&bull; Only auto_fixable findings &rarr; proceed to Phase 11 (Auto-Fix Loop)
+      </div>
+    </details>
+    <details class="collapsible animate" style="--i:25" open>
       <summary><span class="tag tag--review">11</span> &nbsp; Auto-Fix Loop</summary>
       <div class="body">
         For PRs with auto-fixable findings (max 2 iterations):
         <br>&bull; Build punch list from findings
         <br>&bull; <code>execClaude</code> with sonnet to apply fixes
-        <br>&bull; <code>npm run verify</code> — if fails, mark needs_human
+        <br>&bull; <code>npm run verify</code> &mdash; if fails, mark needs_human
         <br>&bull; Commit and push
         <br>&bull; Re-review the PR diff to confirm findings are resolved
         <br>&bull; If findings remain, loop (up to 2 iterations total)
       </div>
     </details>
-    <details class="collapsible animate" style="--i:25" open>
-      <summary><span class="tag tag--review">12</span> &nbsp; Triage</summary>
+    <details class="collapsible animate" style="--i:26" open>
+      <summary><span class="tag tag--review">12b</span> &nbsp; Final Triage</summary>
       <div class="body">
-        Deterministic classification (no LLM):
+        Same deterministic classification, run after Phase 11 completes:
         <br>&bull; No findings or all false_positive &rarr; <span class="tag tag--green">auto_approved</span>
-        <br>&bull; Any needs_human finding &rarr; <span class="tag tag--red">needs_human</span>
-        <br>&bull; Only auto_fixable &rarr; attempt fix &rarr; <span class="tag tag--orange">self_fixed</span> or fallback to needs_human
+        <br>&bull; All auto_fixable resolved (12b returns <code>auto_approved</code> after Phase 11 succeeded) &rarr; orchestrator marks <span class="tag tag--orange">self_fixed</span>
+        <br>&bull; Remaining needs_human findings &rarr; <span class="tag tag--red">needs_human</span>
+        <br>&bull; Review itself failed (unparseable output) &rarr; <span class="tag tag--red">review_failed</span> <em>(reserved &mdash; currently unreachable; unparseable output is treated as clean)</em>
         <br><br>Actions: auto-approved/self-fixed PRs get <code>gh pr ready</code>. Needs-human PRs get a triage comment.
       </div>
     </details>
 
     <!-- ─── CLASSIFICATION ─── -->
-    <div id="s6" class="sec-head animate" style="--i:26">Classification Decision Tree</div>
+    <div id="s6" class="sec-head animate" style="--i:27">Classification Decision Tree</div>
 
-    <p class="desc">How nightshift decides whether a review finding can be auto-fixed or needs human judgment. Classification happens inside the review prompt, not as a separate step.</p>
+    <p class="desc">How nightshift decides whether a review finding can be auto-fixed or needs human judgment. Classification happens inside the review prompt, not as a separate step. All three dimensions (category, severity, scope) are checked for each finding.</p>
 
-    <div class="mermaid-wrap animate" style="--i:27">
+    <figure class="mermaid-wrap animate" style="--i:28" role="img" aria-label="Classification decision tree showing how review findings are categorized as auto_fixable, needs_human, or false_positive based on category, effort level, severity confidence, and scope checks.">
+      <figcaption class="sr-only">Decision tree: findings are classified by category (actionable/security go to effort check, tradeoff/scope_violation go to needs_human, false_positive is skipped), then by effort (trivial/small is auto_fixable, medium is needs_human), with additional gates for low-confidence critical findings and scope violations.</figcaption>
       <div class="zoom-controls">
-        <button onclick="zoomDiagram(this, 1.2)" title="Zoom in">+</button>
-        <button onclick="zoomDiagram(this, 0.8)" title="Zoom out">&minus;</button>
-        <button onclick="resetZoom(this)" title="Reset zoom">&#8634;</button>
+        <button onclick="zoomDiagram(this, 1.2)" title="Zoom in" aria-label="Zoom in">+</button>
+        <button onclick="zoomDiagram(this, 0.8)" title="Zoom out" aria-label="Zoom out">&minus;</button>
+        <button onclick="resetZoom(this)" title="Reset zoom" aria-label="Reset zoom">&#8634;</button>
       </div>
       <pre class="mermaid">
 graph TD
@@ -528,47 +585,54 @@ graph TD
 
   CAT -->|"false_positive"| FP["false_positive"]
 
-  F --> SEV{Severity + Confidence?}
+  AUTO --> SEV{Severity + Confidence?}
   SEV -->|"critical + confidence < 80"| HUM
+  SEV -->|"otherwise"| SCOPE{"Scope check"}
 
-  F --> SCOPE{"Scope check"}
   SCOPE -->|"removed existing features not in spec"| HUM
   SCOPE -->|"added behavior not in spec"| HUM
+  SCOPE -->|"within spec"| PASS["Confirmed auto_fixable"]
 
   classDef greenNode fill:#22c55e22,stroke:#22c55e
   classDef redNode fill:#ef444422,stroke:#ef4444
   classDef orangeNode fill:#f9731622,stroke:#f97316
 
-  class AUTO greenNode
+  class AUTO,PASS greenNode
   class HUM redNode
   class FP orangeNode
       </pre>
-    </div>
+    </figure>
 
     <div class="phase-grid">
-      <div class="card animate" style="--i:28; border-left: 3px solid var(--green);">
+      <div class="card animate" style="--i:29; border-left: 3px solid var(--green);">
         <div class="card-label" style="color:var(--green)">Auto-Fixable</div>
         <p>Magic numbers, missing imports, unused code, missing tests for existing patterns, style issues with clear mechanical fixes.</p>
       </div>
-      <div class="card animate" style="--i:29; border-left: 3px solid var(--red);">
+      <div class="card animate" style="--i:30; border-left: 3px solid var(--red);">
         <div class="card-label" style="color:var(--red)">Needs Human</div>
         <p>Scope violations, cascade deletions, removed functionality, architectural choices, design tradeoffs, spec gaps, uncertain critical findings.</p>
       </div>
-      <div class="card animate" style="--i:30; border-left: 3px solid var(--orange);">
+      <div class="card animate" style="--i:31; border-left: 3px solid var(--orange);">
         <div class="card-label" style="color:var(--orange)">False Positive</div>
-        <p>Reviewer was wrong. The code is correct per spec. Skipped — no action taken.</p>
+        <p>Reviewer was wrong. The code is correct per spec. Skipped &mdash; no action taken.</p>
       </div>
     </div>
 
     <!-- ─── LABELS ─── -->
-    <div id="s7" class="sec-head animate" style="--i:31">Label Lifecycle</div>
+    <div id="s7" class="sec-head animate" style="--i:32">Label Lifecycle</div>
 
-    <div class="label-flow animate" style="--i:32">
+    <div class="label-flow animate" style="--i:33">
       <span class="tag tag--bash">bugbot files issue</span>
       <span class="arrow">&rarr;</span>
       <span class="tag" style="background:var(--cyan-dim);color:var(--cyan);">auto-ready</span>
       <span>+</span>
       <span class="tag" style="background:var(--ts-dim);color:var(--ts);">nightshift</span>
+      <span>+</span>
+      <span class="tag" style="background:var(--bash-dim);color:var(--bash);">bugbot</span>
+      <span>+</span>
+      <span class="tag" style="background:var(--bash-dim);color:var(--bash);">bugbot:{category}</span>
+      <span>+</span>
+      <span class="tag" style="background:var(--orange-dim);color:var(--orange);">priority:{level}</span>
       <span class="arrow">&rarr;</span>
       <span class="tag" style="background:var(--review-dim);color:var(--review);">nightshift picks up</span>
       <span class="arrow">&rarr;</span>
@@ -580,50 +644,86 @@ graph TD
     </div>
 
     <div class="phase-grid">
-      <div class="card animate" style="--i:33">
-        <h3><code>nightshift</code></h3>
-        <p>Scoped for autonomous processing. Applied by bugbot. Consumed by nightshift's discovery phase.</p>
-      </div>
       <div class="card animate" style="--i:34">
-        <h3><code>auto-ready</code></h3>
-        <p>Broader gate — issue is specced and ready. Used by the wave promoter for dependency tracking.</p>
+        <h3><code>nightshift</code></h3>
+        <p>Scoped for autonomous processing. Applied by bugbot or manually. Consumed by nightshift's discovery phase.</p>
       </div>
       <div class="card animate" style="--i:35">
-        <h3><code>auto-pr-ready</code></h3>
-        <p>PR created, awaiting human merge. Counts as "satisfied" for dependency tracking.</p>
+        <h3><code>auto-ready</code></h3>
+        <p>Broader gate &mdash; issue is specced and ready. Used by the wave promoter for dependency tracking. Both labels required for nightshift to pick up an issue.</p>
       </div>
       <div class="card animate" style="--i:36">
+        <h3><code>auto-pr-ready</code></h3>
+        <p>PR created, awaiting human merge. Counts as "satisfied" for dependency tracking in wave promotion.</p>
+      </div>
+      <div class="card animate" style="--i:37">
         <h3><code>auto-failed</code></h3>
         <p>Pipeline failed. Issue gets a comment explaining the failure phase. Needs investigation.</p>
+      </div>
+      <div class="card animate" style="--i:38">
+        <h3><code>bugbot</code> + <code>bugbot:{category}</code></h3>
+        <p>Applied by bugbot to track scanner origin. Categories include <code>bugbot:dead-code</code>, <code>bugbot:type-holes</code>, <code>bugbot:stale-comments</code>, etc.</p>
+      </div>
+      <div class="card animate" style="--i:39">
+        <h3><code>priority:{level}</code></h3>
+        <p>Severity-based priority applied by bugbot. Levels: <code>priority:high</code>, <code>priority:medium</code>, <code>priority:low</code>. Nightshift processes higher-priority issues first.</p>
+      </div>
+    </div>
+
+    <!-- ─── INFRASTRUCTURE ─── -->
+    <div id="s8" class="sec-head animate" style="--i:40"><span class="tag" style="background:var(--cyan-dim);color:var(--cyan);">infra</span> &nbsp; Infrastructure</div>
+
+    <p class="desc">Safety mechanisms that keep the pipeline running unattended overnight. These components are not phases themselves but operate across the entire pipeline.</p>
+
+    <div class="phase-grid">
+      <div class="card animate" style="--i:41">
+        <div class="card-label card-label--infra" style="color:var(--cyan)">Circuit Breaker</div>
+        <h3>Consecutive Failure Protection</h3>
+        <p>Tracks consecutive <em>systemic</em> failures (crashes, timeouts, setup errors) and halts the queue after N trips (default 3, configurable via <code>--max-failures</code>). Spec-level failures (verify gate, panel review) are treated as issue-specific and <em>reset</em> the counter &mdash; they don't indicate infrastructure problems.</p>
+      </div>
+      <div class="card animate" style="--i:42">
+        <div class="card-label card-label--infra" style="color:var(--cyan)">PID Lock</div>
+        <h3>Concurrent Run Prevention</h3>
+        <p>Atomic <code>O_EXCL</code> lockfile at <code>$STATE_DIR/nightshift.lock</code> prevents overlapping nightshift runs. Auto-reclaims stale locks from dead processes. Safe to call <code>nightshift start</code> from tmux or the scheduler without risking parallel execution.</p>
+      </div>
+      <div class="card animate" style="--i:43">
+        <div class="card-label card-label--infra" style="color:var(--cyan)">Worker Pool</div>
+        <h3>Concurrency Semaphore</h3>
+        <p>Controls parallel execution via <code>--concurrency N</code>. Each worker gets its own isolated git worktree. A single <code>git fetch origin</code> runs before the pool starts to avoid fetch contention between workers.</p>
+      </div>
+      <div class="card animate" style="--i:44">
+        <div class="card-label card-label--infra" style="color:var(--cyan)">Wave Promoter</div>
+        <h3>Dependency-Aware Re-queuing</h3>
+        <p>Runs after each batch completes (<code>nightshift promote</code>). Uses Kahn's algorithm to find issues whose dependencies are all satisfied (closed or <code>auto-pr-ready</code>). Promotes them by adding the <code>auto-ready</code> label, re-entering them into the queue for the next nightshift run. This creates the self-sustaining feedback loop.</p>
       </div>
     </div>
 
     <!-- ─── MORNING SUMMARY ─── -->
-    <div id="s8" class="sec-head animate" style="--i:37">Morning Summary</div>
+    <div id="s9" class="sec-head animate" style="--i:45">Morning Summary</div>
 
     <p class="desc">What you see when you check nightshift the next morning. The triage section tells you exactly what needs attention.</p>
 
-    <div class="summary-block animate" style="--i:38"># Nightshift Summary — 2026-03-13
-Started: 02:00 | Finished: 04:15 | Duration: 2h 15m
+    <div class="summary-block animate" style="--i:46"><span aria-label="passed">&#x2705;</span> = auto-approved &nbsp; <span aria-label="self-fixed">&#x1F504;</span> = self-fixed &nbsp; <span aria-label="needs human">&#x26A0;&#xFE0F;</span> = needs human
+
+# Nightshift Summary &mdash; 2026-03-14
+Started: 02:00 | Finished: 02:05 | Duration: 5m 11s
 
 ## Results
-✅ #234 (1m 52s) [panel: pass] → PR #236
-✅ #232 (1m 30s) [panel: pass] → PR #237
-✅ #225 (2m 05s) [panel: pass] → PR #238
-✅ #218 (1m 48s) [panel: pass] → PR #239
-✅ #217 (0m 45s) [panel: pass] → PR #240
-✅ #87  (2m 10s) [panel: pass] → PR #241
+[PASS] #87  (3m 42s) [panel: pass] &rarr; PR #241
+[PASS] #215 (2m 40s) [panel: pass]
+[PASS] #219 (4m 41s) [panel: pass]
+[PASS] #225 (4m 03s) [panel: pass] &rarr; PR #238
+[PASS] #232 (4m 10s) [panel: pass] &rarr; PR #237
+[PASS] #234 (4m 37s) [panel: pass] &rarr; PR #236
+[PASS] #253 (5m 10s) [panel: pass] &rarr; PR #265
 
 ## Totals
-Completed: 6/6 | Failed: 0 | Skipped: 0
+Completed: 12/15 | Failed: 0 | Skipped: 0
 
 ## Triage
-✅ Auto-approved: #237, #238, #240, #241
-🔄 Self-fixed: #236 (1 iteration(s))
-⚠️  Needs human: #239 (scope exceeded spec)
-
-## Token Usage
-Input: 245,000 | Output: 38,000 | Est: $2.15</div>
+[APPROVED] Auto-approved: #87, #232, #253
+[HUMAN]    Needs human: #225 (pairwiseTokenScore not unexported)
+[HUMAN]    Needs human: #234 (silent clamping vs error messages)</div>
 
   </div><!-- /main -->
 </div><!-- /wrap -->
@@ -675,6 +775,26 @@ Input: 245,000 | Output: 38,000 | Est: $2.15</div>
     target.style.transform = 'scale(1)';
     updateZoomState(wrap);
   }
+
+  // Delegated pan/zoom handlers (single listener per event, not per diagram)
+  var activePan = null;
+  document.addEventListener('mousedown', function(e) {
+    var wrap = e.target.closest('.mermaid-wrap');
+    if (!wrap || e.target.closest('.zoom-controls')) return;
+    var target = wrap.querySelector('.mermaid');
+    if (parseFloat(target.dataset.zoom || '1') <= 1) return;
+    wrap.classList.add('is-panning');
+    activePan = { wrap: wrap, startX: e.clientX, startY: e.clientY, scrollL: wrap.scrollLeft, scrollT: wrap.scrollTop };
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (!activePan) return;
+    activePan.wrap.scrollLeft = activePan.scrollL - (e.clientX - activePan.startX);
+    activePan.wrap.scrollTop = activePan.scrollT - (e.clientY - activePan.startY);
+  });
+  document.addEventListener('mouseup', function() {
+    if (activePan) { activePan.wrap.classList.remove('is-panning'); activePan = null; }
+  });
+
   document.querySelectorAll('.mermaid-wrap').forEach(function(wrap) {
     wrap.addEventListener('wheel', function(e) {
       if (!e.ctrlKey && !e.metaKey) return;
@@ -687,53 +807,42 @@ Input: 245,000 | Output: 38,000 | Est: $2.15</div>
       target.style.transform = 'scale(' + next + ')';
       updateZoomState(wrap);
     }, { passive: false });
-    var startX, startY, scrollL, scrollT;
-    wrap.addEventListener('mousedown', function(e) {
-      if (e.target.closest('.zoom-controls')) return;
-      var target = wrap.querySelector('.mermaid');
-      if (parseFloat(target.dataset.zoom || '1') <= 1) return;
-      wrap.classList.add('is-panning');
-      startX = e.clientX; startY = e.clientY;
-      scrollL = wrap.scrollLeft; scrollT = wrap.scrollTop;
-    });
-    window.addEventListener('mousemove', function(e) {
-      if (!wrap.classList.contains('is-panning')) return;
-      wrap.scrollLeft = scrollL - (e.clientX - startX);
-      wrap.scrollTop = scrollT - (e.clientY - startY);
-    });
-    window.addEventListener('mouseup', function() { wrap.classList.remove('is-panning'); });
   });
 
   // Scroll spy
   (function() {
-    const toc = document.getElementById('toc');
-    const links = toc.querySelectorAll('a');
-    const sections = [];
-    links.forEach(link => {
-      const id = link.getAttribute('href').slice(1);
-      const el = document.getElementById(id);
-      if (el) sections.push({ id, el, link });
+    var toc = document.getElementById('toc');
+    var links = toc.querySelectorAll('a');
+    var sections = [];
+    links.forEach(function(link) {
+      var id = link.getAttribute('href').slice(1);
+      var el = document.getElementById(id);
+      if (el) sections.push({ id: id, el: el, link: link });
     });
-    const observer = new IntersectionObserver(entries => {
-      entries.forEach(entry => {
+    var observer = new IntersectionObserver(function(entries) {
+      var topmost = null;
+      entries.forEach(function(entry) {
         if (entry.isIntersecting) {
-          links.forEach(l => l.classList.remove('active'));
-          const match = sections.find(s => s.el === entry.target);
-          if (match) {
-            match.link.classList.add('active');
-            if (window.innerWidth <= 1000) {
-              match.link.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-            }
+          var match = sections.find(function(s) { return s.el === entry.target; });
+          if (match && (!topmost || match.el.getBoundingClientRect().top < topmost.el.getBoundingClientRect().top)) {
+            topmost = match;
           }
         }
       });
+      if (topmost) {
+        links.forEach(function(l) { l.classList.remove('active'); });
+        topmost.link.classList.add('active');
+        if (window.innerWidth <= 1000) {
+          topmost.link.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+      }
     }, { rootMargin: '-10% 0px -80% 0px' });
-    sections.forEach(s => observer.observe(s.el));
-    links.forEach(link => {
-      link.addEventListener('click', e => {
+    sections.forEach(function(s) { observer.observe(s.el); });
+    links.forEach(function(link) {
+      link.addEventListener('click', function(e) {
         e.preventDefault();
-        const id = link.getAttribute('href').slice(1);
-        const el = document.getElementById(id);
+        var id = link.getAttribute('href').slice(1);
+        var el = document.getElementById(id);
         if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); history.replaceState(null, '', '#' + id); }
       });
     });
