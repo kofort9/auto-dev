@@ -63,6 +63,8 @@ bugbot --category dead-code  # Run specific scanner only
 
 ```bash
 nightshift start                    # Launch in tmux with dashboard
+nightshift start --at 2:00          # Start at 2:00 AM tonight (sleeps in tmux)
+nightshift start --in 1h            # Start in 1 hour
 nightshift start --fresh            # Ignore prior state, start clean
 nightshift start --issue 184,185    # Process specific issues (comma-separated, passed individually to auto-dev.sh)
 nightshift start --concurrency 3    # Parallel workers
@@ -70,9 +72,11 @@ nightshift start --dry-run          # Preview queue without executing
 nightshift start --max-failures 3   # Stop after N consecutive failures
 nightshift status                   # One-shot status check
 nightshift log                      # Tail $STATE_DIR/nightshift.log
-nightshift stop                     # Kill the tmux session
+nightshift stop                     # Kill the tmux session (also cancels scheduled runs)
 nightshift promote                  # Label next wave of unblocked issues
 ```
+
+Flags can be combined: `nightshift start --at 2:00 --concurrency 2 --fresh`
 
 ## Pipeline Phases
 
