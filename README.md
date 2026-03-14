@@ -26,7 +26,7 @@ The diagram uses color-coded swim lanes:
 
 Dashed arrows represent label transitions and feedback loops (see [Label Lifecycle](#label-lifecycle)).
 
-See [`docs/pipeline-explainer.html`](docs/pipeline-explainer.html) for an interactive visual breakdown.
+See the [interactive pipeline explainer](https://tropic-lodge-2sy6.here.now/) for a visual breakdown ([source](docs/pipeline-explainer.html)).
 
 ## Setup
 
