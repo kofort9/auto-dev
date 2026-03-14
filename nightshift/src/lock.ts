@@ -30,8 +30,19 @@ export function acquireLock(): void {
       );
       process.exit(1);
     }
-    // Stale lock — reclaim
-    fs.writeFileSync(LOCK_FILE, String(process.pid));
+    // Stale lock — reclaim atomically (delete then O_EXCL create)
+    try {
+      fs.unlinkSync(LOCK_FILE);
+      const fd = fs.openSync(
+        LOCK_FILE,
+        fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY,
+      );
+      fs.writeSync(fd, String(process.pid));
+      fs.closeSync(fd);
+    } catch {
+      console.error("Error: another process reclaimed the lock first");
+      process.exit(1);
+    }
   }
 }
 

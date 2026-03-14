@@ -9,22 +9,22 @@ Autonomous development pipeline that pairs with any GitHub-hosted TypeScript/Nod
 - Node.js 18+
 - [GitHub CLI](https://cli.github.com/) (`gh`) — authenticated
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) (`claude`) — authenticated
+- **Claude Max subscription recommended** — nightshift and bugbot run headless Claude Code sessions that consume significant tokens. Built and tested with unlimited Max tokens; API billing may be expensive for large queues.
 - `npx tsx` (included with Node 18+)
 - tmux (for `nightshift start`)
 
 ## Architecture
 
-```
-bugbot scan → GitHub Issues (labeled "nightshift")
-                    ↓
-nightshift start → picks up issues → Claude Code headless
-                    ↓
-    Phases 1-5:  discover → setup worktree → execute → simplify → verify → [sentinel.json]
-    Phases 6-9:  [sentinel.json] → panel review → simplify filter → fix → re-verify → publish draft PR
-    Phases 10-12: self-review → auto-fix loop → triage
-                    ↓
-    Morning summary: auto-approved / self-fixed / needs-human
-```
+![auto-dev architecture diagram](docs/architecture.png)
+
+The diagram uses color-coded swim lanes:
+- **Blue** — Bugbot: scanners, dedup, and issue filing
+- **Green** — Bash phases (P1–P5): worktree setup and execution via `auto-dev.sh`
+- **Purple** — TypeScript phases (P6–P9): panel review and publish via `worker.ts`
+- **Orange** — Self-review phases (P10–P12): PR triage via `pr-self-review.ts`
+- **Red (bottom bar)** — Infrastructure: state management, circuit breaker, PID lock
+
+Dashed arrows represent label transitions and feedback loops (see [Label Lifecycle](#label-lifecycle)).
 
 See [`docs/pipeline-explainer.html`](docs/pipeline-explainer.html) for an interactive visual breakdown.
 
@@ -78,6 +78,8 @@ nightshift promote                  # Label next wave of unblocked issues
 
 Flags can be combined: `nightshift start --at 2:00 --concurrency 2 --fresh`
 
+The queue builder converts labeled GitHub issues into a prioritized work queue; the worker pool processes them with configurable concurrency (`--concurrency N`) controlled by a semaphore.
+
 ## Pipeline Phases
 
 | Phase | Name | Tool | Description |
@@ -85,17 +87,17 @@ Flags can be combined: `nightshift start --at 2:00 --concurrency 2 --fresh`
 | 1 | Discover | auto-dev.sh | Find `nightshift`-labeled issues via `gh` |
 | 2 | Setup | auto-dev.sh | Create git worktree from `origin/main` |
 | 3 | Execute | auto-dev.sh | Claude Code implements the fix headlessly + scope constraints (no cascade deletions) |
-| 4 | Simplify | auto-dev.sh | Code quality pass (Claude reviews own work) + scope-limited (won't delete code spec didn't mention) |
-| 5 | Verify | auto-dev.sh | Gates 1-5: verify, file limits (≤15), line limits (≤500 total), dependency guard (positive-verb match), deletion budget (≤15 net / ≤40 gross). Writes sentinel JSON on success |
-| — | Handoff | auto-dev.sh → worker.ts | Sentinel JSON (with `net_deletions`, `head_sha`) bridges bash and TypeScript layers |
+| 4 | Simplify | auto-dev.sh | Code quality pass (Claude reviews own work) + scope-limited (won't delete code the spec didn't mention) |
+| 5 | Verify | auto-dev.sh | Gates 1–5: verify, file limits (≤15), line limits (≤500 total), dependency guard (positive-verb match), deletion budget (≤15 net / ≤40 gross). On success, writes `sentinel.json` — the handoff artifact (with `net_deletions`, `head_sha`) that activates the TypeScript layer |
 | 6 | Panel Review | worker.ts | Always: code-reviewer, spec-compliance-checker, test-coverage-checker, scope-checker. Conditional: red-team (security files), ml-specialist (scoring files) |
-| 6.5 | Simplify Filter | worker.ts | Remove overengineered review suggestions |
+| 6.5 | Simplify Filter | worker.ts | Remove overengineered review suggestions (internal step, not shown in diagram) |
 | 7 | Fix | worker.ts | Apply actionable review findings |
 | 8 | Re-verify | worker.ts | `npm run verify` after fixes |
 | 9 | Publish | worker.ts | Create draft PR, post review brief |
 | 10 | Self-Review | pr-self-review.ts | Review each PR diff, classify findings |
 | 11 | Auto-Fix | pr-self-review.ts | Fix auto-fixable findings, re-verify, push |
 | 12 | Triage | pr-self-review.ts | Deterministic: approve / self-fix / flag for human |
+| 12+ | Wave Promotion | pr-self-review.ts | Promotes dependency-unblocked issues (Kahn's algorithm), labels them `auto-ready` + `nightshift` to re-enter the queue |
 
 ## Configuration
 
@@ -106,6 +108,12 @@ Flags can be combined: `nightshift start --at 2:00 --concurrency 2 --fresh`
 | `BUGBOT_STATE` | `~/.bugbot` | Bugbot state directory |
 | `SCAN_ROOT` | Same as `TARGET_REPO` | Bugbot scan target (if different) |
 | `BUGBOT_ROOT` | `~/Repos/auto-dev/bugbot` | Bugbot source directory |
+
+The circuit breaker (`--max-failures N`, default 5) halts the queue after N consecutive failures. A PID lock at `$STATE_DIR/nightshift.pid` prevents overlapping runs.
+
+## Wave Promotion
+
+Nightshift includes a dependency-aware promoter (`nightshift promote`) that uses Kahn's algorithm to find issues whose dependencies are all satisfied (closed or PR-ready). When promotion succeeds, issues are labeled `auto-ready` + `nightshift`, re-entering the queue for the next nightshift run. This creates the self-sustaining feedback loop shown as the dashed arrow in the diagram.
 
 ## Label Lifecycle
 
@@ -126,7 +134,3 @@ Flags can be combined: `nightshift start --at 2:00 --concurrency 2 --fresh`
 - `bugbot` — filed by bugbot (vs. manually created)
 - `bugbot:{category}` — scanner category (e.g., `bugbot:dead-code`, `bugbot:type-holes`)
 - `priority:{level}` — severity-based priority (e.g., `priority:high`, `priority:low`)
-
-## Wave Promotion
-
-Nightshift includes a dependency-aware promoter (`nightshift promote`) that uses Kahn's algorithm to find issues whose dependencies are all satisfied (closed or PR-ready), then labels them for the next run.
