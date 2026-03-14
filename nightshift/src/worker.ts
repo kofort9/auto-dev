@@ -503,6 +503,8 @@ function publish(
 
 Autonomous implementation of issue #${issueNumber}.
 
+Closes #${issueNumber}
+
 ## Verification
 
 - \`npm run verify\`: ✅ passed

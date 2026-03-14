@@ -272,9 +272,16 @@ while true; do
       fi
       rm -f "$STATE_DIR/nightshift.lock"  # stale lock from dead process
     fi
-    log "Running nightshift (concurrency $NS_CONCURRENCY)..."
+    # Skip if no issues queued (nightshift + auto-ready labels)
     export TARGET_REPO="${TARGET_REPO:?}"
     export STATE_DIR
+    queue_count=$(gh issue list --repo "$(cd "$TARGET_REPO" && gh repo view --json nameWithOwner -q .nameWithOwner)" \
+      --label nightshift --label auto-ready --state open --json number -q 'length' 2>/dev/null || echo "0")
+    if (( queue_count == 0 )); then
+      log "Skipping — no issues labeled nightshift + auto-ready"
+      continue
+    fi
+    log "Running nightshift ($queue_count issues queued, concurrency $NS_CONCURRENCY)..."
     npx tsx nightshift/src/index.ts run --concurrency "$NS_CONCURRENCY" 2>&1 | tee -a "$LOG" || true
     log "Nightshift finished"
   fi
