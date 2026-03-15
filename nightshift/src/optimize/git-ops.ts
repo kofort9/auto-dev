@@ -10,8 +10,16 @@ import { createLogger } from "../log.js";
 
 const log = createLogger("optimize:git");
 
+/** Validate branch name — reject anything that could be interpreted as a git flag. */
+function assertValidBranch(branch: string): void {
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9/_.-]*$/.test(branch)) {
+    throw new Error(`Invalid branch name: ${branch}`);
+  }
+}
+
 /** Ensure the optimize branch exists, branching from origin/main. */
 export function ensureBranch(repoRoot: string, branch: string): void {
+  assertValidBranch(branch);
   // Fetch latest main
   gitExec(repoRoot, ["fetch", "origin", "main"]);
 
@@ -68,6 +76,7 @@ export function commitExperiment(repoRoot: string, message: string): string {
 
 /** Push branch to origin. */
 export function pushBranch(repoRoot: string, branch: string): void {
+  assertValidBranch(branch);
   gitExec(repoRoot, ["push", "-u", "origin", branch, "--force-with-lease"]);
   log(`Pushed ${branch}`);
 }

@@ -76,13 +76,5 @@ export function formatRecentRows(rows: ExperimentRow[], n = 10): string {
 
 /** Get the last N results for context (reads from disk — prefer formatRecentRows for hot paths). */
 export function recentResults(repoRoot: string, n = 10): string {
-  const rows = readResults(repoRoot);
-  if (rows.length === 0) return "No experiments yet.";
-  const recent = rows.slice(-n);
-  const header = "commit\tp50_ms\tdelta%\tstatus\tdescription";
-  const lines = recent.map(
-    (r) =>
-      `${r.commit}\t${r.p50_ms.toFixed(1)}\t${r.delta_pct > 0 ? "+" : ""}${r.delta_pct.toFixed(1)}%\t${r.status}\t${r.description}`,
-  );
-  return [header, ...lines].join("\n");
+  return formatRecentRows(readResults(repoRoot), n);
 }

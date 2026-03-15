@@ -105,6 +105,9 @@ export function isImprovement(
   baseline: BenchmarkResult,
   after: BenchmarkResult,
 ): { improved: boolean; delta_pct: number } {
+  if (baseline.p50_ms <= 0) {
+    return { improved: false, delta_pct: 0 };
+  }
   const delta_pct =
     ((baseline.p50_ms - after.p50_ms) / baseline.p50_ms) * 100;
   return {

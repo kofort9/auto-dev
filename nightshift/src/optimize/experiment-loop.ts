@@ -9,6 +9,7 @@ import { fileURLToPath } from "url";
 import { spawnSync } from "child_process";
 import type {
   OptimizeOptions,
+  OptimizeState,
   BenchmarkResult,
   ExperimentRow,
   Hypothesis,
@@ -34,7 +35,7 @@ import {
   runVerify,
   isImprovement,
 } from "./benchmark.js";
-import { initResultsTsv, appendResult, formatRecentRows } from "./results.js";
+import { initResultsTsv, appendResult, readResults, formatRecentRows } from "./results.js";
 import {
   notifyWin,
   notifyConflict,
@@ -112,13 +113,16 @@ export async function runOptimizeLoop(
     initResultsTsv(repoRoot);
 
     // Read program.md once — passed to all hypothesis calls
-    const programMd = fs.readFileSync(
-      path.join(__dirname, "program.md"),
-      "utf-8",
-    );
+    let programMd: string;
+    try {
+      programMd = fs.readFileSync(path.join(__dirname, "program.md"), "utf-8");
+    } catch (err) {
+      log(`Failed to read program.md: ${err} — cannot run optimize loop`);
+      return;
+    }
 
-    // In-memory results buffer — avoids re-reading TSV for hypothesis context
-    const rows: ExperimentRow[] = [];
+    // In-memory results buffer seeded from disk (cross-run history for LLM context)
+    const rows: ExperimentRow[] = readResults(repoRoot);
 
     // Establish baseline
     log("Running baseline benchmark...");
@@ -162,9 +166,7 @@ export async function runOptimizeLoop(
       if (!validateTargetFiles(hypothesis.target_files)) {
         log("Hypothesis targets files outside src/ — rejecting");
         recordCrash(repoRoot, rows, snapshot, "bad targets", hypothesis.summary);
-        state.total_experiments++;
-        writeOptimizeState(state);
-        updateDashboard(state);
+        finishExperiment(state);
         continue;
       }
 
@@ -176,9 +178,7 @@ export async function runOptimizeLoop(
         rollback(repoRoot, snapshot);
         recordCrash(repoRoot, rows, snapshot, "impl failed", hypothesis.summary);
         notifyCrash(hypothesis.summary);
-        state.total_experiments++;
-        writeOptimizeState(state);
-        updateDashboard(state);
+        finishExperiment(state);
         continue;
       }
 
@@ -189,9 +189,7 @@ export async function runOptimizeLoop(
         log("Verify failed — rolling back");
         rollback(repoRoot, snapshot);
         recordCrash(repoRoot, rows, snapshot, "verify failed", hypothesis.summary);
-        state.total_experiments++;
-        writeOptimizeState(state);
-        updateDashboard(state);
+        finishExperiment(state);
         continue;
       }
 
@@ -202,9 +200,7 @@ export async function runOptimizeLoop(
         log("Benchmark failed — rolling back");
         rollback(repoRoot, snapshot);
         recordCrash(repoRoot, rows, snapshot, "bench failed", hypothesis.summary);
-        state.total_experiments++;
-        writeOptimizeState(state);
-        updateDashboard(state);
+        finishExperiment(state);
         continue;
       }
 
@@ -219,7 +215,8 @@ export async function runOptimizeLoop(
 
       if (improved) {
         // WIN — commit and advance
-        const sha = commitExperiment(repoRoot, `optimize: ${hypothesis.summary}`);
+        const safeSummary = hypothesis.summary.replace(/[\n\r]/g, " ").slice(0, MAX_DESCRIPTION_LEN);
+        const sha = commitExperiment(repoRoot, `optimize: ${safeSummary}`);
         log(`WIN: p50 ${currentBaseline.p50_ms}ms → ${after.p50_ms}ms (${delta_pct.toFixed(1)}% improvement) [${elapsed}]`);
 
         const winRow: ExperimentRow = {
@@ -268,9 +265,7 @@ export async function runOptimizeLoop(
       }
 
       // All paths: increment experiments, persist, update dashboard
-      state.total_experiments++;
-      writeOptimizeState(state);
-      updateDashboard(state);
+      finishExperiment(state);
     }
 
     // Final state update
@@ -282,9 +277,6 @@ export async function runOptimizeLoop(
       Math.round((Date.now() - loopStart) / 1000),
     );
     log(`\nOptimize complete: ${winsThisRun} wins / ${opts.maxExperiments} experiments in ${totalElapsed}`);
-
-    // Final dashboard update
-    updateDashboard(state);
   } finally {
     releaseOptimizeLock();
   }
@@ -438,6 +430,13 @@ function truncateDesc(s: string): string {
   return cleaned.length > MAX_DESCRIPTION_LEN
     ? cleaned.slice(0, MAX_DESCRIPTION_LEN) + "..."
     : cleaned;
+}
+
+/** Persist experiment count, write state, update dashboard — called once per iteration. */
+function finishExperiment(state: OptimizeState): void {
+  state.total_experiments++;
+  writeOptimizeState(state);
+  updateDashboard(state);
 }
 
 /** Record a crash result: append to TSV + in-memory buffer. */
