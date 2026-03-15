@@ -181,7 +181,7 @@ echo "$ISSUES" | jq -c '.[]' | while read -r issue; do
   EXECUTE_LOG="$LOG_DIR/${DATE}-${NUMBER}-execute.log"
 
   # Write prompt to temp file to avoid shell expansion of $BODY (security: prevents command injection)
-  EXECUTE_PROMPT=$(mktemp "$LOG_DIR/prompt-execute-XXXXXX.md")
+  EXECUTE_PROMPT=$(mktemp "$LOG_DIR/prompt-execute-XXXXXX")
   cat > "$EXECUTE_PROMPT" <<'PROMPT_HEADER'
 You are working on an issue in the target repo. Here is the full spec:
 
@@ -218,7 +218,7 @@ PROMPT_FOOTER
   SIMPLIFY_LOG="$LOG_DIR/${DATE}-${NUMBER}-simplify.log"
 
   # Write prompt to temp file (same security pattern as Phase 3)
-  SIMPLIFY_PROMPT=$(mktemp "$LOG_DIR/prompt-simplify-XXXXXX.md")
+  SIMPLIFY_PROMPT=$(mktemp "$LOG_DIR/prompt-simplify-XXXXXX")
   cat > "$SIMPLIFY_PROMPT" <<'PROMPT_HEADER'
 Review the code changes in this repo (git diff origin/main) against the original spec. Simplify for clarity, consistency, and maintainability. Preserve all functionality.
 
