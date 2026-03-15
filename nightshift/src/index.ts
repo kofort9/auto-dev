@@ -28,6 +28,7 @@ import { runPostRunReview } from "./pr-self-review.js";
 import { generateSummary, writeSummary } from "./summary.js";
 import { promoteNextWave } from "./promoter.js";
 import { createLogger } from "./log.js";
+import { runOptimize } from "./optimize/index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const NIGHTSHIFT_ROOT = path.resolve(__dirname, ".."); // nightshift/
@@ -51,9 +52,14 @@ if (subcommand === "promote") {
   process.exit(0);
 }
 
-if (subcommand !== "run") {
+if (subcommand === "optimize") {
+  runOptimize(args.slice(1), REPO_ROOT).then(() => process.exit(0)).catch((err) => {
+    console.error("[optimize] Fatal:", err);
+    process.exit(1);
+  });
+} else if (subcommand !== "run") {
   console.error(`Unknown subcommand: ${subcommand}`);
-  console.error("Usage: nightshift [run|status|promote]");
+  console.error("Usage: nightshift [run|status|promote|optimize]");
   process.exit(1);
 }
 

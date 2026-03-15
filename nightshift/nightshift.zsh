@@ -284,6 +284,15 @@ while true; do
     log "Running nightshift ($queue_count issues queued, concurrency $NS_CONCURRENCY)..."
     npx tsx nightshift/src/index.ts run --concurrency "$NS_CONCURRENCY" 2>&1 | tee -a "$LOG" || true
     log "Nightshift finished"
+
+    # After nightshift completes, run optimize if not paused
+    if [[ ! -f "$STATE_DIR/optimize-paused.json" ]]; then
+      log "Running optimize (post-nightshift, max 10 experiments)..."
+      npx tsx nightshift/src/index.ts optimize --max-experiments 10 2>&1 | tee -a "$LOG" || true
+      log "Optimize finished"
+    else
+      log "Skipping optimize — paused (rebase conflict)"
+    fi
   fi
 
   # Check if next event is already overdue (e.g. a run took longer than expected)
@@ -337,6 +346,42 @@ SCHED
           ;;
       esac
       ;;
+    optimize)
+      local action="${2:-}"
+      case "$action" in
+        stop)
+          tmux kill-session -t nightshift-optimize 2>/dev/null && echo "Optimize stopped." || echo "Not running."
+          ;;
+        status)
+          cd "$repo" && "${ns[@]}" optimize status
+          ;;
+        log)
+          tail -f "$STATE_DIR/optimize.log"
+          ;;
+        *)
+          # Check for pause state
+          if [[ -f "$STATE_DIR/optimize-paused.json" ]]; then
+            echo "Optimize is PAUSED (rebase conflict). Resolve on the autoresearch/optimize branch, then:"
+            echo "  rm $STATE_DIR/optimize-paused.json"
+            return 1
+          fi
+          if tmux has-session -t nightshift-optimize 2>/dev/null; then
+            echo "Optimize already running. Use 'nightshift optimize stop' to cancel."
+            return 1
+          fi
+          # Pass remaining args through
+          local -a opt_args=("${@:2}")
+          local escaped_opt_args
+          escaped_opt_args=$(printf '%q ' "${opt_args[@]}")
+          local opt_cmd="cd $q_repo && ${ns[*]} optimize $escaped_opt_args"
+          tmux new -d -s nightshift-optimize "$opt_cmd"
+          echo "Optimize started in tmux session 'nightshift-optimize'."
+          echo "  View:   tmux attach -t nightshift-optimize"
+          echo "  Status: nightshift optimize status"
+          echo "  Stop:   nightshift optimize stop"
+          ;;
+      esac
+      ;;
     *)
       if tmux has-session -t nightshift 2>/dev/null; then
         tmux attach -t nightshift:dash
@@ -349,6 +394,7 @@ SCHED
         echo "  nightshift start --fresh          Start clean (ignore prior state)"
         echo "  nightshift start --concurrency 3  Parallel workers"
         echo "  nightshift schedule start          Start 24/7 schedule (bugbot 9am+9pm, nightshift 2am)"
+        echo "  nightshift optimize               Start autonomous optimization"
         echo "  nightshift status                 One-shot status"
         echo "  nightshift log                    Tail the log"
         echo "  nightshift stop                   Kill the session"
