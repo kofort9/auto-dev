@@ -101,16 +101,56 @@ export function runVerify(repoRoot: string): boolean {
   }
 }
 
-/** Check if the result is a meaningful improvement over baseline. */
+/** Check if the result is a statistically significant, meaningful improvement.
+ *  Requires BOTH: p50 delta >= 5% AND paired t-test significant at alpha=0.05.
+ *  Uses per-EIN timing deltas — same corpus, same order, zero extra benchmark cost. */
 export function isImprovement(
   baseline: BenchmarkResult,
   after: BenchmarkResult,
-): { improved: boolean; delta_pct: number } {
+): { improved: boolean; delta_pct: number; t_stat: number } {
   const delta_pct = deltaPercent(baseline.p50_ms, after.p50_ms);
-  return {
-    improved: delta_pct >= IMPROVEMENT_THRESHOLD_PCT && after.tests_pass,
-    delta_pct,
+
+  if (!after.tests_pass || delta_pct < IMPROVEMENT_THRESHOLD_PCT) {
+    return { improved: false, delta_pct, t_stat: 0 };
+  }
+
+  // Paired t-test on per-EIN timing deltas (baseline[i] - after[i])
+  const n = Math.min(baseline.individual_ms.length, after.individual_ms.length);
+  if (n < 5) {
+    // Too few samples — fall back to magnitude threshold only
+    return { improved: true, delta_pct, t_stat: Infinity };
+  }
+
+  const diffs = baseline.individual_ms.slice(0, n).map((b, i) => b - after.individual_ms[i]);
+  const meanDiff = diffs.reduce((a, b) => a + b, 0) / n;
+  const variance = diffs.reduce((a, d) => a + (d - meanDiff) ** 2, 0) / (n - 1);
+  const se = Math.sqrt(variance / n);
+
+  if (se === 0) {
+    return { improved: meanDiff > 0, delta_pct, t_stat: meanDiff > 0 ? Infinity : 0 };
+  }
+
+  const t_stat = meanDiff / se;
+  const t_crit = tCritical(n - 1);
+
+  return { improved: t_stat > t_crit, delta_pct, t_stat };
+}
+
+/** One-sided t-critical values at alpha=0.05 for common degrees of freedom. */
+function tCritical(df: number): number {
+  // Lookup table for df 4-30 (covers corpus sizes 5-31)
+  const table: Record<number, number> = {
+    4: 2.132, 5: 2.015, 6: 1.943, 7: 1.895, 8: 1.860,
+    9: 1.833, 10: 1.812, 11: 1.796, 12: 1.782, 13: 1.771,
+    14: 1.761, 15: 1.753, 20: 1.725, 25: 1.708, 30: 1.697,
   };
+  if (table[df]) return table[df];
+  if (df > 30) return 1.645; // normal approximation
+  // Conservative: use next higher df in table
+  for (const k of Object.keys(table).map(Number).sort((a, b) => a - b)) {
+    if (k >= df) return table[k];
+  }
+  return 1.645;
 }
 
 // ---------------------------------------------------------------------------

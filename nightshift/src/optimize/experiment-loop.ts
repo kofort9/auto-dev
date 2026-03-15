@@ -207,8 +207,8 @@ export async function runOptimizeLoop(
       // Orchestrator sets tests_pass (not the runner template)
       const after: BenchmarkResult = { ...benchResult, tests_pass: testsPass };
 
-      // Evaluate
-      const { improved, delta_pct } = isImprovement(currentBaseline, after);
+      // Evaluate — requires both magnitude threshold AND statistical significance
+      const { improved, delta_pct, t_stat } = isImprovement(currentBaseline, after);
       const elapsed = formatDuration(
         Math.round((Date.now() - experimentStart) / 1000),
       );
@@ -217,7 +217,7 @@ export async function runOptimizeLoop(
         // WIN — commit and advance
         const safeSummary = hypothesis.summary.replace(/[\n\r]/g, " ").slice(0, MAX_DESCRIPTION_LEN);
         const sha = commitExperiment(repoRoot, `optimize: ${safeSummary}`);
-        log(`WIN: p50 ${currentBaseline.p50_ms}ms → ${after.p50_ms}ms (${delta_pct.toFixed(1)}% improvement) [${elapsed}]`);
+        log(`WIN: p50 ${currentBaseline.p50_ms}ms → ${after.p50_ms}ms (${delta_pct.toFixed(1)}%, t=${t_stat.toFixed(2)}) [${elapsed}]`);
 
         const winRow: ExperimentRow = {
           commit: sha,
@@ -249,7 +249,8 @@ export async function runOptimizeLoop(
         }
       } else {
         // DISCARD — rollback
-        log(`DISCARD: p50 ${currentBaseline.p50_ms}ms → ${after.p50_ms}ms (${delta_pct.toFixed(1)}%) [${elapsed}]`);
+        const reason = delta_pct < 5 ? "below threshold" : `not significant (t=${t_stat.toFixed(2)})`;
+        log(`DISCARD (${reason}): p50 ${currentBaseline.p50_ms}ms → ${after.p50_ms}ms (${delta_pct.toFixed(1)}%) [${elapsed}]`);
         rollback(repoRoot, snapshot);
 
         const discardRow: ExperimentRow = {
