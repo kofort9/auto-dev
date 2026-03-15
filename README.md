@@ -10,6 +10,7 @@ Autonomous development pipeline that pairs with any GitHub-hosted TypeScript/Nod
 - [GitHub CLI](https://cli.github.com/) (`gh`) — authenticated
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) (`claude`) — authenticated
 - **Claude Max subscription recommended** — nightshift and bugbot run headless Claude Code sessions that consume significant tokens. Built and tested with unlimited Max tokens; API billing may be expensive for large queues.
+- **GitHub Actions minutes** — every PR nightshift creates triggers CI on the target repo (branch push + merge-to-main = 2 CI triggers per issue). The actual cost depends on your target repo's CI workflow — matrix builds, long test suites, or multiple jobs multiply the minutes per trigger. A full overnight run of 40+ issues can easily consume 200+ minutes on a modest CI setup, and much more with heavier workflows. GitHub Free includes 2,000 min/month for private repos (public repos are unlimited). Monitor usage at Settings → Billing → Actions, and set a $0 spending limit to avoid surprise charges. Consider pausing nightshift late in your billing cycle if you're above 80%.
 - `npx tsx` (included with Node 18+)
 - tmux (for `nightshift start`)
 
