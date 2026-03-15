@@ -5,6 +5,7 @@
 
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import { spawnSync } from "child_process";
 import type {
   OptimizeOptions,
@@ -17,6 +18,7 @@ import {
   acquireOptimizeLock,
   releaseOptimizeLock,
   isPaused,
+  getOptimizeStateDir,
 } from "./state.js";
 import {
   ensureBranch,
@@ -41,7 +43,13 @@ import { draftPr } from "./pr.js";
 import { updateDashboard } from "./dashboard.js";
 import { createLogger, formatDuration } from "../log.js";
 
+// __dirname equivalent for ESM (must be at module scope, not after first use)
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 const log = createLogger("optimize:loop");
+
+/** Max description length stored in results.tsv to limit prompt injection surface. */
+const MAX_DESCRIPTION_LEN = 120;
 
 export async function runOptimizeLoop(
   repoRoot: string,
@@ -91,12 +99,8 @@ export async function runOptimizeLoop(
         last_run_at: new Date().toISOString(),
       });
       // Write pause marker
-      const stateDir = (process.env.STATE_DIR ?? "~/.auto-dev").replace(
-        /^~/,
-        process.env.HOME ?? "",
-      );
       fs.writeFileSync(
-        path.join(stateDir, "optimize-paused.json"),
+        path.join(getOptimizeStateDir(), "optimize-paused.json"),
         JSON.stringify({ reason: "rebase_conflict", at: new Date().toISOString() }),
       );
       return;
@@ -108,18 +112,20 @@ export async function runOptimizeLoop(
 
     // Establish baseline
     log("Running baseline benchmark...");
-    const baseline = runBenchmark(repoRoot);
-    if (!baseline) {
+    const baselineBench = runBenchmark(repoRoot);
+    if (!baselineBench) {
       log("Baseline benchmark failed — cannot proceed");
       return;
     }
+    // Orchestrator controls tests_pass — verify must pass for baseline
+    const baseline: BenchmarkResult = { ...baselineBench, tests_pass: runVerify(repoRoot) };
     log(`Baseline: p50=${baseline.p50_ms}ms p95=${baseline.p95_ms}ms`);
 
     // Update state
     writeOptimizeState({
       ...state,
       status: "running",
-      baseline_p50_ms: state.baseline_p50_ms || baseline.p50_ms,
+      baseline_p50_ms: state.baseline_p50_ms > 0 ? state.baseline_p50_ms : baseline.p50_ms,
       current_p50_ms: baseline.p50_ms,
       last_run_at: new Date().toISOString(),
     });
@@ -144,6 +150,21 @@ export async function runOptimizeLoop(
       }
       log(`Hypothesis: ${hypothesis.summary}`);
 
+      // Validate target_files — reject paths outside src/
+      if (!validateTargetFiles(hypothesis.target_files)) {
+        log("Hypothesis targets files outside src/ — rejecting");
+        appendResult(repoRoot, {
+          commit: snapshot,
+          p50_ms: 0,
+          p95_ms: 0,
+          delta_pct: 0,
+          status: "crash",
+          description: truncateDesc(`[bad targets] ${hypothesis.summary}`),
+        });
+        incrementExperiments();
+        continue;
+      }
+
       // Implement the change
       log("Implementing change...");
       const implemented = implementChange(repoRoot, hypothesis);
@@ -156,16 +177,17 @@ export async function runOptimizeLoop(
           p95_ms: 0,
           delta_pct: 0,
           status: "crash",
-          description: `[impl failed] ${hypothesis.summary}`,
+          description: truncateDesc(`[impl failed] ${hypothesis.summary}`),
         });
         notifyCrash(hypothesis.summary);
-        updateLoopState(state, 0, winsThisRun);
+        incrementExperiments();
         continue;
       }
 
       // Verify (build + lint + test)
       log("Running verify...");
-      if (!runVerify(repoRoot)) {
+      const testsPass = runVerify(repoRoot);
+      if (!testsPass) {
         log("Verify failed — rolling back");
         rollback(repoRoot, snapshot);
         appendResult(repoRoot, {
@@ -174,16 +196,16 @@ export async function runOptimizeLoop(
           p95_ms: 0,
           delta_pct: 0,
           status: "crash",
-          description: `[verify failed] ${hypothesis.summary}`,
+          description: truncateDesc(`[verify failed] ${hypothesis.summary}`),
         });
-        updateLoopState(state, 0, winsThisRun);
+        incrementExperiments();
         continue;
       }
 
       // Benchmark
       log("Running benchmark...");
-      const after = runBenchmark(repoRoot);
-      if (!after) {
+      const benchResult = runBenchmark(repoRoot);
+      if (!benchResult) {
         log("Benchmark failed — rolling back");
         rollback(repoRoot, snapshot);
         appendResult(repoRoot, {
@@ -192,11 +214,14 @@ export async function runOptimizeLoop(
           p95_ms: 0,
           delta_pct: 0,
           status: "crash",
-          description: `[bench failed] ${hypothesis.summary}`,
+          description: truncateDesc(`[bench failed] ${hypothesis.summary}`),
         });
-        updateLoopState(state, 0, winsThisRun);
+        incrementExperiments();
         continue;
       }
+
+      // Orchestrator sets tests_pass (not the runner template)
+      const after: BenchmarkResult = { ...benchResult, tests_pass: testsPass };
 
       // Evaluate
       const { improved, delta_pct } = isImprovement(currentBaseline, after);
@@ -215,7 +240,7 @@ export async function runOptimizeLoop(
           p95_ms: after.p95_ms,
           delta_pct,
           status: "keep",
-          description: hypothesis.summary,
+          description: truncateDesc(hypothesis.summary),
         });
 
         notifyWin(
@@ -250,12 +275,10 @@ export async function runOptimizeLoop(
           p95_ms: after.p95_ms,
           delta_pct,
           status: "discard",
-          description: hypothesis.summary,
+          description: truncateDesc(hypothesis.summary),
         });
 
-        const updated = readOptimizeState();
-        updated.total_experiments++;
-        writeOptimizeState(updated);
+        incrementExperiments();
       }
 
       // Update dashboard after each experiment
@@ -312,7 +335,8 @@ Rules:
 - Do NOT repeat experiments that already failed (check results above)
 - Prioritize high-impact targets that haven't been tried
 - Be specific about the change — reference actual function names and patterns
-- One focused change only`;
+- One focused change only
+- target_files MUST be relative paths starting with src/`;
 
   try {
     const result = spawnSync(
@@ -334,7 +358,12 @@ Rules:
     const jsonMatch = output.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return null;
 
-    return JSON.parse(jsonMatch[0]) as Hypothesis;
+    const parsed: unknown = JSON.parse(jsonMatch[0]);
+    if (!isValidHypothesis(parsed)) {
+      log("Hypothesis failed schema validation");
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -361,7 +390,7 @@ ${hypothesis.target_files.map((f) => `- ${f}`).join("\n")}
 
 ## Rules
 
-- ONLY modify the files listed above (or closely related files if necessary)
+- ONLY modify the files listed above (or closely related files in src/)
 - Do NOT modify test files, config files, scripts/, or benchmark/
 - Keep the change minimal and focused
 - Preserve the public API — runScreening() return type must not change
@@ -381,7 +410,10 @@ ${hypothesis.target_files.map((f) => `- ${f}`).join("\n")}
       },
     );
 
-    // Consider it implemented if Claude didn't crash
+    if (result.status !== 0) {
+      log(`Implementation exited with code ${result.status}: ${(result.stderr ?? "").slice(-500)}`);
+    }
+
     return result.status === 0;
   } catch {
     return false;
@@ -389,18 +421,46 @@ ${hypothesis.target_files.map((f) => `- ${f}`).join("\n")}
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Validation helpers
 // ---------------------------------------------------------------------------
 
-function updateLoopState(
-  _state: ReturnType<typeof readOptimizeState>,
-  _delta: number,
-  _wins: number,
-): void {
+/** Type guard for hypothesis JSON from LLM output. */
+function isValidHypothesis(h: unknown): h is Hypothesis {
+  return (
+    typeof h === "object" &&
+    h !== null &&
+    typeof (h as Record<string, unknown>).summary === "string" &&
+    Array.isArray((h as Record<string, unknown>).target_files) &&
+    ((h as Record<string, unknown>).target_files as unknown[]).every(
+      (f: unknown) => typeof f === "string",
+    ) &&
+    typeof (h as Record<string, unknown>).approach === "string"
+  );
+}
+
+/** Validate that all target files are relative paths within src/. */
+function validateTargetFiles(files: string[]): boolean {
+  for (const f of files) {
+    if (path.isAbsolute(f) || f.includes("..") || !f.startsWith("src/")) {
+      log(`Rejected target file: ${f}`);
+      return false;
+    }
+  }
+  return files.length > 0;
+}
+
+/** Truncate description for results.tsv (limits prompt injection surface). */
+function truncateDesc(s: string): string {
+  // Strip XML-like tags that could be used for prompt injection
+  const cleaned = s.replace(/<[^>]*>/g, "").trim();
+  return cleaned.length > MAX_DESCRIPTION_LEN
+    ? cleaned.slice(0, MAX_DESCRIPTION_LEN) + "..."
+    : cleaned;
+}
+
+/** Increment total_experiments in state (used on failure paths). */
+function incrementExperiments(): void {
   const state = readOptimizeState();
   state.total_experiments++;
   writeOptimizeState(state);
 }
-
-// __dirname equivalent for ESM
-const __dirname = path.dirname(new URL(import.meta.url).pathname);

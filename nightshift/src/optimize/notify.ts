@@ -36,5 +36,8 @@ function send(title: string, body: string): void {
 }
 
 function escape(s: string): string {
-  return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return s
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/[\n\r\t\x00-\x1f]/g, " ");
 }

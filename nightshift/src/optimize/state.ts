@@ -34,7 +34,7 @@ export function readOptimizeState(): OptimizeState {
 
 export function writeOptimizeState(state: OptimizeState): void {
   const tmp = STATE_FILE + ".tmp";
-  fs.writeFileSync(tmp, JSON.stringify(state, null, 2) + "\n");
+  fs.writeFileSync(tmp, JSON.stringify(state, null, 2) + "\n", { mode: 0o600 });
   fs.renameSync(tmp, STATE_FILE);
 }
 
@@ -77,6 +77,10 @@ export function releaseOptimizeLock(): void {
 
 export function isPaused(): boolean {
   return fs.existsSync(path.join(STATE_DIR, "optimize-paused.json"));
+}
+
+export function getOptimizeStateDir(): string {
+  return STATE_DIR;
 }
 
 function isAlive(pid: number): boolean {

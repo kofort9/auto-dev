@@ -8,6 +8,10 @@ import path from "path";
 import type { OptimizeState } from "./types.js";
 import { createLogger } from "../log.js";
 
+function htmlEscape(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 const log = createLogger("optimize:dash");
 
 const DASHBOARD_PATH = path.resolve(
@@ -74,11 +78,11 @@ function generatePanel(state: OptimizeState): string {
       : "—";
 
   const prLink = state.last_pr_url
-    ? `<a href="${state.last_pr_url}" style="color:#60a5fa">${state.last_pr_url.split("/").pop()}</a>`
+    ? `<a href="${htmlEscape(state.last_pr_url)}" style="color:#60a5fa">${htmlEscape(state.last_pr_url.split("/").pop() ?? "")}</a>`
     : "none";
 
   const lastRun = state.last_run_at
-    ? new Date(state.last_run_at).toLocaleString()
+    ? htmlEscape(new Date(state.last_run_at).toLocaleString())
     : "never";
 
   return `${PANEL_MARKER_START}
@@ -86,7 +90,7 @@ function generatePanel(state: OptimizeState): string {
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
     <span style="background:${statusColor};width:8px;height:8px;border-radius:50%;display:inline-block"></span>
     <strong style="color:#cdd6f4">Autoresearch Optimize</strong>
-    <span style="color:${statusColor};font-size:11px">${statusLabel}</span>
+    <span style="color:${statusColor};font-size:11px">${htmlEscape(statusLabel)}</span>
   </div>
   <table style="width:100%;border-collapse:collapse;color:#bac2de">
     <tr><td style="padding:2px 8px">p50 latency</td><td style="text-align:right">${state.baseline_p50_ms}ms → <strong style="color:#a6e3a1">${state.current_p50_ms}ms</strong> (${deltaTotal}%)</td></tr>

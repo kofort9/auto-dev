@@ -76,7 +76,9 @@ export function runBenchmark(repoRoot: string): BenchmarkResult | null {
 
   try {
     const raw = fs.readFileSync(outputFile, "utf-8");
-    return JSON.parse(raw) as BenchmarkResult;
+    const parsed = JSON.parse(raw) as Omit<BenchmarkResult, "tests_pass">;
+    // tests_pass is set by the orchestrator after running verify, not by the runner
+    return { ...parsed, tests_pass: false };
   } catch (err) {
     log(`Failed to parse benchmark output: ${err}`);
     return null;
@@ -208,7 +210,7 @@ async function main() {
   for (const ein of eins) {
     const start = performance.now();
     try {
-      await pipeline.runScreening(ein, { forceRefresh: true });
+      await pipeline.runScreening(ein, { forceRefresh: false });
     } catch (err) {
       console.error(\`EIN \${ein} failed: \${err}\`);
     }
@@ -230,7 +232,6 @@ async function main() {
     p95_ms: Math.round(p95),
     mean_ms: Math.round(mean),
     individual_ms: timings.map((t) => Math.round(t)),
-    tests_pass: true, // Set by the orchestrator after running verify
   };
 
   fs.writeFileSync(OUTPUT_FILE, JSON.stringify(result, null, 2));

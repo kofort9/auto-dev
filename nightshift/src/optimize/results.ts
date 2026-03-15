@@ -46,10 +46,15 @@ export function readResults(repoRoot: string): ExperimentRow[] {
       p50_ms: parseFloat(p50),
       p95_ms: parseFloat(p95),
       delta_pct: parseFloat(delta),
-      status: status as ExperimentRow["status"],
+      status: isValidStatus(status) ? status : "crash",
       description: desc.join("\t"),
     };
   });
+}
+
+const VALID_STATUSES = new Set(["keep", "discard", "crash"]);
+function isValidStatus(s: string): s is ExperimentRow["status"] {
+  return VALID_STATUSES.has(s);
 }
 
 /** Get the last N results for context. */

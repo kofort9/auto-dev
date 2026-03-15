@@ -370,10 +370,12 @@ SCHED
             return 1
           fi
           # Pass remaining args through
+          local q_opt_repo
+          printf -v q_opt_repo '%q' "$repo"
           local -a opt_args=("${@:2}")
           local escaped_opt_args
           escaped_opt_args=$(printf '%q ' "${opt_args[@]}")
-          local opt_cmd="cd $q_repo && ${ns[*]} optimize $escaped_opt_args"
+          local opt_cmd="cd $q_opt_repo && ${ns[*]} optimize $escaped_opt_args"
           tmux new -d -s nightshift-optimize "$opt_cmd"
           echo "Optimize started in tmux session 'nightshift-optimize'."
           echo "  View:   tmux attach -t nightshift-optimize"
