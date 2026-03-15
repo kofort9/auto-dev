@@ -23,7 +23,8 @@ import {
   getOptimizeStateDir,
 } from "./state.js";
 import {
-  ensureBranch,
+  ensureWorktree,
+  cleanupWorktree,
   rebaseFromMain,
   snapshotSha,
   rollback,
@@ -85,13 +86,13 @@ export async function runOptimizeLoop(
       return;
     }
 
-    // Setup branch
-    log(`Setting up branch ${branch}...`);
-    ensureBranch(repoRoot, branch);
+    // Setup worktree (isolates optimize from user's working tree)
+    log(`Setting up worktree for ${branch}...`);
+    const workDir = ensureWorktree(repoRoot, branch);
 
     // Rebase from main
     log("Rebasing from origin/main...");
-    if (!rebaseFromMain(repoRoot)) {
+    if (!rebaseFromMain(workDir)) {
       log("Rebase conflict — pausing optimize");
       notifyConflict();
       writeOptimizeState({
@@ -109,8 +110,8 @@ export async function runOptimizeLoop(
     }
 
     // Seed benchmark infrastructure (one-time)
-    seedBenchmark(repoRoot);
-    initResultsTsv(repoRoot);
+    seedBenchmark(workDir);
+    initResultsTsv(workDir);
 
     // Read program.md once — passed to all hypothesis calls
     let programMd: string;
@@ -122,17 +123,17 @@ export async function runOptimizeLoop(
     }
 
     // In-memory results buffer seeded from disk (cross-run history for LLM context)
-    const rows: ExperimentRow[] = readResults(repoRoot);
+    const rows: ExperimentRow[] = readResults(workDir);
 
     // Establish baseline
     log("Running baseline benchmark...");
-    const baselineBench = runBenchmark(repoRoot);
+    const baselineBench = runBenchmark(workDir);
     if (!baselineBench) {
       log("Baseline benchmark failed — cannot proceed");
       return;
     }
     // Orchestrator controls tests_pass — verify must pass for baseline
-    const baseline: BenchmarkResult = { ...baselineBench, tests_pass: runVerify(repoRoot) };
+    const baseline: BenchmarkResult = { ...baselineBench, tests_pass: runVerify(workDir) };
     log(`Baseline: p50=${baseline.p50_ms}ms p95=${baseline.p95_ms}ms`);
 
     // Update state — preserve original baseline across runs
@@ -151,11 +152,11 @@ export async function runOptimizeLoop(
       log(`\n--- Experiment ${i + 1}/${opts.maxExperiments} ---`);
 
       // Snapshot current state
-      const snapshot = snapshotSha(repoRoot);
+      const snapshot = snapshotSha(workDir);
 
       // Generate hypothesis using in-memory results
       log("Generating hypothesis...");
-      const hypothesis = generateHypothesis(repoRoot, programMd, formatRecentRows(rows));
+      const hypothesis = generateHypothesis(workDir, programMd, formatRecentRows(rows));
       if (!hypothesis) {
         log("Failed to generate hypothesis — skipping");
         continue;
@@ -165,18 +166,18 @@ export async function runOptimizeLoop(
       // Validate target_files — reject paths outside src/
       if (!validateTargetFiles(hypothesis.target_files)) {
         log("Hypothesis targets files outside src/ — rejecting");
-        recordCrash(repoRoot, rows, snapshot, "bad targets", hypothesis.summary);
+        recordCrash(workDir, rows, snapshot, "bad targets", hypothesis.summary);
         finishExperiment(state);
         continue;
       }
 
       // Implement the change
       log("Implementing change...");
-      const implemented = implementChange(repoRoot, hypothesis);
+      const implemented = implementChange(workDir, hypothesis);
       if (!implemented) {
         log("Implementation failed — rolling back");
-        rollback(repoRoot, snapshot);
-        recordCrash(repoRoot, rows, snapshot, "impl failed", hypothesis.summary);
+        rollback(workDir, snapshot);
+        recordCrash(workDir, rows, snapshot, "impl failed", hypothesis.summary);
         notifyCrash(hypothesis.summary);
         finishExperiment(state);
         continue;
@@ -184,22 +185,22 @@ export async function runOptimizeLoop(
 
       // Verify (build + lint + test)
       log("Running verify...");
-      const testsPass = runVerify(repoRoot);
+      const testsPass = runVerify(workDir);
       if (!testsPass) {
         log("Verify failed — rolling back");
-        rollback(repoRoot, snapshot);
-        recordCrash(repoRoot, rows, snapshot, "verify failed", hypothesis.summary);
+        rollback(workDir, snapshot);
+        recordCrash(workDir, rows, snapshot, "verify failed", hypothesis.summary);
         finishExperiment(state);
         continue;
       }
 
       // Benchmark
       log("Running benchmark...");
-      const benchResult = runBenchmark(repoRoot);
+      const benchResult = runBenchmark(workDir);
       if (!benchResult) {
         log("Benchmark failed — rolling back");
-        rollback(repoRoot, snapshot);
-        recordCrash(repoRoot, rows, snapshot, "bench failed", hypothesis.summary);
+        rollback(workDir, snapshot);
+        recordCrash(workDir, rows, snapshot, "bench failed", hypothesis.summary);
         finishExperiment(state);
         continue;
       }
@@ -216,7 +217,7 @@ export async function runOptimizeLoop(
       if (improved) {
         // WIN — commit and advance
         const safeSummary = hypothesis.summary.replace(/[\n\r]/g, " ").slice(0, MAX_DESCRIPTION_LEN);
-        const sha = commitExperiment(repoRoot, `optimize: ${safeSummary}`);
+        const sha = commitExperiment(workDir, `optimize: ${safeSummary}`);
         log(`WIN: p50 ${currentBaseline.p50_ms}ms → ${after.p50_ms}ms (${delta_pct.toFixed(1)}%, t=${t_stat.toFixed(2)}) [${elapsed}]`);
 
         const winRow: ExperimentRow = {
@@ -227,7 +228,7 @@ export async function runOptimizeLoop(
           status: "keep",
           description: truncateDesc(hypothesis.summary),
         };
-        appendResult(repoRoot, winRow);
+        appendResult(workDir, winRow);
         rows.push(winRow);
 
         notifyWin(
@@ -245,13 +246,13 @@ export async function runOptimizeLoop(
         // Check if we should draft a PR
         if (state.wins_since_pr >= opts.winsBeforePr) {
           log(`${state.wins_since_pr} wins accumulated — drafting PR`);
-          draftPr(repoRoot, branch, state);
+          draftPr(workDir, branch, state);
         }
       } else {
         // DISCARD — rollback
         const reason = delta_pct < 5 ? "below threshold" : `not significant (t=${t_stat.toFixed(2)})`;
         log(`DISCARD (${reason}): p50 ${currentBaseline.p50_ms}ms → ${after.p50_ms}ms (${delta_pct.toFixed(1)}%) [${elapsed}]`);
-        rollback(repoRoot, snapshot);
+        rollback(workDir, snapshot);
 
         const discardRow: ExperimentRow = {
           commit: snapshot,
@@ -261,7 +262,7 @@ export async function runOptimizeLoop(
           status: "discard",
           description: truncateDesc(hypothesis.summary),
         };
-        appendResult(repoRoot, discardRow);
+        appendResult(workDir, discardRow);
         rows.push(discardRow);
       }
 
@@ -279,6 +280,7 @@ export async function runOptimizeLoop(
     );
     log(`\nOptimize complete: ${winsThisRun} wins / ${opts.maxExperiments} experiments in ${totalElapsed}`);
   } finally {
+    cleanupWorktree(repoRoot);
     releaseOptimizeLock();
   }
 }

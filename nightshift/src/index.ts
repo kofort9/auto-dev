@@ -11,6 +11,7 @@
  *   npx tsx nightshift/src/index.ts run --concurrency 3    # Parallel workers (default: 1)
  *   npx tsx nightshift/src/index.ts status                 # One-shot status
  *   npx tsx nightshift/src/index.ts promote                # Label next wave of unblocked issues
+ *   npx tsx nightshift/src/index.ts optimize               # Autonomous performance optimization
  */
 
 import path from "path";
@@ -38,88 +39,104 @@ const REPO_ROOT = path.resolve(
   (process.env.TARGET_REPO ?? TARGET_REPO_DEFAULT).replace(/^~/, process.env.HOME ?? ""),
 );
 
-// --- Arg parsing ---
+const log = createLogger("nightshift");
+
+// --- Subcommand dispatch ---
 const args = process.argv.slice(2);
 const subcommand = args[0] ?? "run";
 
-if (subcommand === "status") {
-  printStatus();
-  process.exit(0);
+switch (subcommand) {
+  case "status":
+    printStatus();
+    process.exit(0);
+    break;
+
+  case "promote":
+    promoteNextWave(REPO_ROOT);
+    process.exit(0);
+    break;
+
+  case "optimize":
+    runOptimize(args.slice(1), REPO_ROOT).then(() => process.exit(0)).catch((err) => {
+      console.error("[optimize] Fatal:", err);
+      process.exit(1);
+    });
+    break;
+
+  case "run":
+    runNightshift();
+    break;
+
+  default:
+    console.error(`Unknown subcommand: ${subcommand}`);
+    console.error("Usage: nightshift [run|status|promote|optimize]");
+    process.exit(1);
 }
 
-if (subcommand === "promote") {
-  promoteNextWave(REPO_ROOT);
-  process.exit(0);
-}
+// --- Run subcommand ---
+function runNightshift(): void {
+  // Parse run options
+  const opts: NightshiftOptions = {
+    fresh: false,
+    dryRun: false,
+    issueList: [],
+    maxFailures: 3,
+    concurrency: 1,
+  };
 
-if (subcommand === "optimize") {
-  runOptimize(args.slice(1), REPO_ROOT).then(() => process.exit(0)).catch((err) => {
-    console.error("[optimize] Fatal:", err);
+  for (let i = 1; i < args.length; i++) {
+    switch (args[i]) {
+      case "--fresh":
+        opts.fresh = true;
+        break;
+      case "--dry-run":
+        opts.dryRun = true;
+        break;
+      case "--issue": {
+        const val = args[++i];
+        if (!val || !/^\d+(,\d+)*$/.test(val)) {
+          console.error("Error: --issue must be comma-separated numbers");
+          process.exit(1);
+        }
+        opts.issueList = val.split(",").map(Number);
+        break;
+      }
+      case "--max-failures": {
+        const val = args[++i];
+        if (!val || !/^\d+$/.test(val)) {
+          console.error("Error: --max-failures must be a positive integer");
+          process.exit(1);
+        }
+        opts.maxFailures = parseInt(val, 10);
+        break;
+      }
+      case "--concurrency": {
+        const val = args[++i];
+        if (!val || !/^[1-9]\d*$/.test(val)) {
+          console.error("Error: --concurrency must be a positive integer (1-10)");
+          process.exit(1);
+        }
+        const n = parseInt(val, 10);
+        if (n > 10) {
+          console.error("Error: --concurrency max is 10");
+          process.exit(1);
+        }
+        opts.concurrency = n;
+        break;
+      }
+      default:
+        console.error(`Unknown argument: ${args[i]}`);
+        process.exit(1);
+    }
+  }
+
+  main(opts).catch((err) => {
+    console.error("[nightshift] Fatal:", err);
     process.exit(1);
   });
-} else if (subcommand !== "run") {
-  console.error(`Unknown subcommand: ${subcommand}`);
-  console.error("Usage: nightshift [run|status|promote|optimize]");
-  process.exit(1);
 }
 
-// Parse run options
-const opts: NightshiftOptions = {
-  fresh: false,
-  dryRun: false,
-  issueList: [],
-  maxFailures: 3,
-  concurrency: 1,
-};
-
-for (let i = 1; i < args.length; i++) {
-  switch (args[i]) {
-    case "--fresh":
-      opts.fresh = true;
-      break;
-    case "--dry-run":
-      opts.dryRun = true;
-      break;
-    case "--issue": {
-      const val = args[++i];
-      if (!val || !/^\d+(,\d+)*$/.test(val)) {
-        console.error("Error: --issue must be comma-separated numbers");
-        process.exit(1);
-      }
-      opts.issueList = val.split(",").map(Number);
-      break;
-    }
-    case "--max-failures": {
-      const val = args[++i];
-      if (!val || !/^\d+$/.test(val)) {
-        console.error("Error: --max-failures must be a positive integer");
-        process.exit(1);
-      }
-      opts.maxFailures = parseInt(val, 10);
-      break;
-    }
-    case "--concurrency": {
-      const val = args[++i];
-      if (!val || !/^[1-9]\d*$/.test(val)) {
-        console.error("Error: --concurrency must be a positive integer (1-10)");
-        process.exit(1);
-      }
-      const n = parseInt(val, 10);
-      if (n > 10) {
-        console.error("Error: --concurrency max is 10");
-        process.exit(1);
-      }
-      opts.concurrency = n;
-      break;
-    }
-    default:
-      console.error(`Unknown argument: ${args[i]}`);
-      process.exit(1);
-  }
-}
-
-// --- Main ---
-async function main(): Promise<void> {
+async function main(opts: NightshiftOptions): Promise<void> {
   ensureStateDir();
   acquireLock();
 
@@ -215,10 +232,3 @@ function printStatus(): void {
     console.log("No state file.");
   }
 }
-
-const log = createLogger("nightshift");
-
-main().catch((err) => {
-  console.error("[nightshift] Fatal:", err);
-  process.exit(1);
-});

@@ -242,7 +242,7 @@ async function main() {
 
   console.log(\`Benchmarking \${eins.length} EINs...\`);
 
-  // Initialize pipeline (uses cached SQLite data)
+  // Initialize pipeline (forceRefresh re-runs computation; empty API keys skip enrichers)
   const { pipeline, cleanup } = await initPipeline({ rateLimitMs: 0 });
 
   const timings: number[] = [];
@@ -250,7 +250,7 @@ async function main() {
   for (const ein of eins) {
     const start = performance.now();
     try {
-      await pipeline.runScreening(ein, { forceRefresh: false });
+      await pipeline.runScreening(ein, { forceRefresh: true });
     } catch (err) {
       console.error(\`EIN \${ein} failed: \${err}\`);
     }
