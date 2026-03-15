@@ -12,7 +12,7 @@ const log = createLogger("optimize:git");
 
 /** Validate branch name — reject anything that could be interpreted as a git flag. */
 function assertValidBranch(branch: string): void {
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9/_.-]*$/.test(branch)) {
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9/_.-]*$/.test(branch) || branch.includes("..") || branch.endsWith(".")) {
     throw new Error(`Invalid branch name: ${branch}`);
   }
 }
@@ -65,7 +65,7 @@ export function rollback(repoRoot: string, sha: string): void {
 
 /** Commit all changes with a message. Returns the new short SHA. */
 export function commitExperiment(repoRoot: string, message: string): string {
-  gitExec(repoRoot, ["add", "-A"]);
+  gitExec(repoRoot, ["add", "src/"]);
   gitExec(repoRoot, [
     "commit",
     "-m",
@@ -79,11 +79,6 @@ export function pushBranch(repoRoot: string, branch: string): void {
   assertValidBranch(branch);
   gitExec(repoRoot, ["push", "-u", "origin", branch, "--force-with-lease"]);
   log(`Pushed ${branch}`);
-}
-
-/** Get current branch name. */
-export function currentBranch(repoRoot: string): string {
-  return gitExec(repoRoot, ["rev-parse", "--abbrev-ref", "HEAD"]).trim();
 }
 
 /** Safe git execution — uses execFileSync with arg arrays (no shell). */

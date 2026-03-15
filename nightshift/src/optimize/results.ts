@@ -73,8 +73,3 @@ export function formatRecentRows(rows: ExperimentRow[], n = 10): string {
   );
   return [header, ...lines].join("\n");
 }
-
-/** Get the last N results for context (reads from disk — prefer formatRecentRows for hot paths). */
-export function recentResults(repoRoot: string, n = 10): string {
-  return formatRecentRows(readResults(repoRoot), n);
-}
