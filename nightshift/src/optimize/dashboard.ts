@@ -6,6 +6,7 @@
 import fs from "fs";
 import path from "path";
 import type { OptimizeState } from "./types.js";
+import { deltaPercent } from "./results.js";
 import { createLogger } from "../log.js";
 
 function htmlEscape(s: string): string {
@@ -63,14 +64,7 @@ function generatePanel(state: OptimizeState): string {
 
   const statusLabel = state.status.toUpperCase();
 
-  const deltaTotal =
-    state.baseline_p50_ms > 0
-      ? (
-          ((state.baseline_p50_ms - state.current_p50_ms) /
-            state.baseline_p50_ms) *
-          100
-        ).toFixed(1)
-      : "0.0";
+  const deltaTotal = deltaPercent(state.baseline_p50_ms, state.current_p50_ms).toFixed(1);
 
   const winRate =
     state.total_experiments > 0

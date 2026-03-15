@@ -6,7 +6,7 @@
 import type { OptimizeOptions } from "./types.js";
 import { readOptimizeState } from "./state.js";
 import { runOptimizeLoop } from "./experiment-loop.js";
-import { updateDashboard } from "./dashboard.js";
+import { deltaPercent } from "./results.js";
 import { createLogger } from "../log.js";
 
 const log = createLogger("optimize");
@@ -81,13 +81,9 @@ function printStatus(): void {
   console.log(`Branch:       ${state.branch}`);
 
   if (state.baseline_p50_ms > 0) {
-    const delta = (
-      ((state.baseline_p50_ms - state.current_p50_ms) /
-        state.baseline_p50_ms) *
-      100
-    ).toFixed(1);
+    const delta = deltaPercent(state.baseline_p50_ms, state.current_p50_ms);
     console.log(
-      `Latency (p50): ${state.baseline_p50_ms}ms → ${state.current_p50_ms}ms (${delta}% improvement)`,
+      `Latency (p50): ${state.baseline_p50_ms}ms → ${state.current_p50_ms}ms (${delta.toFixed(1)}% improvement)`,
     );
   }
 
@@ -104,7 +100,4 @@ function printStatus(): void {
   if (state.pause_reason) {
     console.log(`Pause reason: ${state.pause_reason}`);
   }
-
-  // Update dashboard while we're at it
-  updateDashboard(state);
 }

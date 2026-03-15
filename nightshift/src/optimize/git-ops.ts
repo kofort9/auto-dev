@@ -25,9 +25,9 @@ export function ensureBranch(repoRoot: string, branch: string): void {
   }
 }
 
-/** Rebase optimize branch onto origin/main. Returns true on success. */
+/** Rebase optimize branch onto origin/main. Returns true on success.
+ *  Assumes caller already fetched origin/main (ensureBranch does this). */
 export function rebaseFromMain(repoRoot: string): boolean {
-  gitExec(repoRoot, ["fetch", "origin", "main"]);
   try {
     gitExec(repoRoot, ["rebase", "origin/main"]);
     log("Rebased onto origin/main");

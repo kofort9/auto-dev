@@ -10,6 +10,7 @@ import { spawnSync } from "child_process";
 import type {
   OptimizeOptions,
   BenchmarkResult,
+  ExperimentRow,
   Hypothesis,
 } from "./types.js";
 import {
@@ -33,7 +34,7 @@ import {
   runVerify,
   isImprovement,
 } from "./benchmark.js";
-import { initResultsTsv, appendResult, recentResults } from "./results.js";
+import { initResultsTsv, appendResult, formatRecentRows } from "./results.js";
 import {
   notifyWin,
   notifyConflict,
@@ -110,6 +111,15 @@ export async function runOptimizeLoop(
     seedBenchmark(repoRoot);
     initResultsTsv(repoRoot);
 
+    // Read program.md once — passed to all hypothesis calls
+    const programMd = fs.readFileSync(
+      path.join(__dirname, "program.md"),
+      "utf-8",
+    );
+
+    // In-memory results buffer — avoids re-reading TSV for hypothesis context
+    const rows: ExperimentRow[] = [];
+
     // Establish baseline
     log("Running baseline benchmark...");
     const baselineBench = runBenchmark(repoRoot);
@@ -121,14 +131,12 @@ export async function runOptimizeLoop(
     const baseline: BenchmarkResult = { ...baselineBench, tests_pass: runVerify(repoRoot) };
     log(`Baseline: p50=${baseline.p50_ms}ms p95=${baseline.p95_ms}ms`);
 
-    // Update state
-    writeOptimizeState({
-      ...state,
-      status: "running",
-      baseline_p50_ms: state.baseline_p50_ms > 0 ? state.baseline_p50_ms : baseline.p50_ms,
-      current_p50_ms: baseline.p50_ms,
-      last_run_at: new Date().toISOString(),
-    });
+    // Update state — preserve original baseline across runs
+    state.status = "running";
+    if (state.baseline_p50_ms <= 0) state.baseline_p50_ms = baseline.p50_ms;
+    state.current_p50_ms = baseline.p50_ms;
+    state.last_run_at = new Date().toISOString();
+    writeOptimizeState(state);
 
     let currentBaseline = baseline;
     let winsThisRun = 0;
@@ -141,9 +149,9 @@ export async function runOptimizeLoop(
       // Snapshot current state
       const snapshot = snapshotSha(repoRoot);
 
-      // Generate hypothesis
+      // Generate hypothesis using in-memory results
       log("Generating hypothesis...");
-      const hypothesis = generateHypothesis(repoRoot);
+      const hypothesis = generateHypothesis(repoRoot, programMd, formatRecentRows(rows));
       if (!hypothesis) {
         log("Failed to generate hypothesis — skipping");
         continue;
@@ -153,15 +161,10 @@ export async function runOptimizeLoop(
       // Validate target_files — reject paths outside src/
       if (!validateTargetFiles(hypothesis.target_files)) {
         log("Hypothesis targets files outside src/ — rejecting");
-        appendResult(repoRoot, {
-          commit: snapshot,
-          p50_ms: 0,
-          p95_ms: 0,
-          delta_pct: 0,
-          status: "crash",
-          description: truncateDesc(`[bad targets] ${hypothesis.summary}`),
-        });
-        incrementExperiments();
+        recordCrash(repoRoot, rows, snapshot, "bad targets", hypothesis.summary);
+        state.total_experiments++;
+        writeOptimizeState(state);
+        updateDashboard(state);
         continue;
       }
 
@@ -171,16 +174,11 @@ export async function runOptimizeLoop(
       if (!implemented) {
         log("Implementation failed — rolling back");
         rollback(repoRoot, snapshot);
-        appendResult(repoRoot, {
-          commit: snapshot,
-          p50_ms: 0,
-          p95_ms: 0,
-          delta_pct: 0,
-          status: "crash",
-          description: truncateDesc(`[impl failed] ${hypothesis.summary}`),
-        });
+        recordCrash(repoRoot, rows, snapshot, "impl failed", hypothesis.summary);
         notifyCrash(hypothesis.summary);
-        incrementExperiments();
+        state.total_experiments++;
+        writeOptimizeState(state);
+        updateDashboard(state);
         continue;
       }
 
@@ -190,15 +188,10 @@ export async function runOptimizeLoop(
       if (!testsPass) {
         log("Verify failed — rolling back");
         rollback(repoRoot, snapshot);
-        appendResult(repoRoot, {
-          commit: snapshot,
-          p50_ms: 0,
-          p95_ms: 0,
-          delta_pct: 0,
-          status: "crash",
-          description: truncateDesc(`[verify failed] ${hypothesis.summary}`),
-        });
-        incrementExperiments();
+        recordCrash(repoRoot, rows, snapshot, "verify failed", hypothesis.summary);
+        state.total_experiments++;
+        writeOptimizeState(state);
+        updateDashboard(state);
         continue;
       }
 
@@ -208,15 +201,10 @@ export async function runOptimizeLoop(
       if (!benchResult) {
         log("Benchmark failed — rolling back");
         rollback(repoRoot, snapshot);
-        appendResult(repoRoot, {
-          commit: snapshot,
-          p50_ms: 0,
-          p95_ms: 0,
-          delta_pct: 0,
-          status: "crash",
-          description: truncateDesc(`[bench failed] ${hypothesis.summary}`),
-        });
-        incrementExperiments();
+        recordCrash(repoRoot, rows, snapshot, "bench failed", hypothesis.summary);
+        state.total_experiments++;
+        writeOptimizeState(state);
+        updateDashboard(state);
         continue;
       }
 
@@ -234,14 +222,16 @@ export async function runOptimizeLoop(
         const sha = commitExperiment(repoRoot, `optimize: ${hypothesis.summary}`);
         log(`WIN: p50 ${currentBaseline.p50_ms}ms → ${after.p50_ms}ms (${delta_pct.toFixed(1)}% improvement) [${elapsed}]`);
 
-        appendResult(repoRoot, {
+        const winRow: ExperimentRow = {
           commit: sha,
           p50_ms: after.p50_ms,
           p95_ms: after.p95_ms,
           delta_pct,
           status: "keep",
           description: truncateDesc(hypothesis.summary),
-        });
+        };
+        appendResult(repoRoot, winRow);
+        rows.push(winRow);
 
         notifyWin(
           hypothesis.summary,
@@ -251,45 +241,42 @@ export async function runOptimizeLoop(
         currentBaseline = after;
         winsThisRun++;
 
-        // Update state
-        const updated = readOptimizeState();
-        updated.total_wins++;
-        updated.wins_since_pr++;
-        updated.current_p50_ms = after.p50_ms;
-        updated.total_experiments++;
-        writeOptimizeState(updated);
+        state.total_wins++;
+        state.wins_since_pr++;
+        state.current_p50_ms = after.p50_ms;
 
         // Check if we should draft a PR
-        if (updated.wins_since_pr >= opts.winsBeforePr) {
-          log(`${updated.wins_since_pr} wins accumulated — drafting PR`);
-          draftPr(repoRoot, branch, updated);
+        if (state.wins_since_pr >= opts.winsBeforePr) {
+          log(`${state.wins_since_pr} wins accumulated — drafting PR`);
+          draftPr(repoRoot, branch, state);
         }
       } else {
         // DISCARD — rollback
         log(`DISCARD: p50 ${currentBaseline.p50_ms}ms → ${after.p50_ms}ms (${delta_pct.toFixed(1)}%) [${elapsed}]`);
         rollback(repoRoot, snapshot);
 
-        appendResult(repoRoot, {
+        const discardRow: ExperimentRow = {
           commit: snapshot,
           p50_ms: after.p50_ms,
           p95_ms: after.p95_ms,
           delta_pct,
           status: "discard",
           description: truncateDesc(hypothesis.summary),
-        });
-
-        incrementExperiments();
+        };
+        appendResult(repoRoot, discardRow);
+        rows.push(discardRow);
       }
 
-      // Update dashboard after each experiment
-      updateDashboard(readOptimizeState());
+      // All paths: increment experiments, persist, update dashboard
+      state.total_experiments++;
+      writeOptimizeState(state);
+      updateDashboard(state);
     }
 
     // Final state update
-    const finalState = readOptimizeState();
-    finalState.status = "idle";
-    finalState.last_run_at = new Date().toISOString();
-    writeOptimizeState(finalState);
+    state.status = "idle";
+    state.last_run_at = new Date().toISOString();
+    writeOptimizeState(state);
 
     const totalElapsed = formatDuration(
       Math.round((Date.now() - loopStart) / 1000),
@@ -297,7 +284,7 @@ export async function runOptimizeLoop(
     log(`\nOptimize complete: ${winsThisRun} wins / ${opts.maxExperiments} experiments in ${totalElapsed}`);
 
     // Final dashboard update
-    updateDashboard(finalState);
+    updateDashboard(state);
   } finally {
     releaseOptimizeLock();
   }
@@ -307,12 +294,7 @@ export async function runOptimizeLoop(
 // Hypothesis generation — Claude --print mode
 // ---------------------------------------------------------------------------
 
-function generateHypothesis(repoRoot: string): Hypothesis | null {
-  const programMd = fs.readFileSync(
-    path.join(__dirname, "program.md"),
-    "utf-8",
-  );
-  const resultsContext = recentResults(repoRoot);
+function generateHypothesis(repoRoot: string, programMd: string, resultsContext: string): Hypothesis | null {
 
   const prompt = `You are an autonomous code optimizer. Read the program below and the recent experiment results, then propose ONE specific optimization to try next.
 
@@ -458,9 +440,22 @@ function truncateDesc(s: string): string {
     : cleaned;
 }
 
-/** Increment total_experiments in state (used on failure paths). */
-function incrementExperiments(): void {
-  const state = readOptimizeState();
-  state.total_experiments++;
-  writeOptimizeState(state);
+/** Record a crash result: append to TSV + in-memory buffer. */
+function recordCrash(
+  repoRoot: string,
+  rows: ExperimentRow[],
+  snapshot: string,
+  reason: string,
+  summary: string,
+): void {
+  const row: ExperimentRow = {
+    commit: snapshot,
+    p50_ms: 0,
+    p95_ms: 0,
+    delta_pct: 0,
+    status: "crash",
+    description: truncateDesc(`[${reason}] ${summary}`),
+  };
+  appendResult(repoRoot, row);
+  rows.push(row);
 }
