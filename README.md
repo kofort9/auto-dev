@@ -80,6 +80,27 @@ Flags can be combined: `nightshift start --at 2:00 --concurrency 2 --fresh`
 
 The queue builder converts labeled GitHub issues into a prioritized work queue; the worker pool processes them with configurable concurrency (`--concurrency N`) controlled by a semaphore.
 
+### Optimize (autonomous performance tuning)
+
+```bash
+nightshift optimize                          # Run with defaults (10 experiments, PR after 5 wins)
+nightshift optimize --max-experiments 20     # Cap experiment count
+nightshift optimize --wins-before-pr 3       # Draft PR after 3 wins
+nightshift optimize --dry-run                # Show config without executing
+nightshift optimize status                   # Show optimize state
+```
+
+Inspired by Karpathy's [autoresearch](https://github.com/karpathy/autoresearch) pattern. Runs in a **git worktree** (`TARGET_REPO--optimize`) so the user's working tree is never touched. Each experiment cycle:
+
+1. Claude generates a hypothesis (reads `program.md` + prior results)
+2. Claude implements the change headlessly
+3. `npm run verify` gates correctness (build + lint + test)
+4. Benchmark runs 15 diverse screenings, measures p50/p95 latency
+5. **Win detection** requires both >=5% p50 improvement AND statistical significance (paired t-test, alpha=0.05)
+6. Win → commit kept, baseline ratchets forward. Loss → rollback to snapshot SHA
+
+After N wins accumulate, a draft PR is created with before/after metrics. Wall time is ~5 minutes per experiment.
+
 ## Pipeline Phases
 
 | Phase | Name | Tool | Description |
@@ -113,7 +134,7 @@ The circuit breaker (`--max-failures N`, default 3) halts the queue after N cons
 
 ## Wave Promotion
 
-Nightshift includes a dependency-aware promoter (`nightshift promote`) that uses Kahn's algorithm to find issues whose dependencies are all satisfied (closed or PR-ready). When promotion succeeds, issues are labeled `auto-ready` + `nightshift`, re-entering the queue for the next nightshift run. This creates the self-sustaining feedback loop shown as the dashed arrow in the diagram.
+Nightshift includes a dependency-aware promoter (`nightshift promote`) that uses Kahn's algorithm to find issues whose dependencies are all satisfied (closed or PR-ready). Promotion uses an **allowlist** approach: only issues whose labels are all in the `AUTONOMOUS_LABELS` set get promoted. Any unknown label blocks promotion (fails safe). When promotion succeeds, issues are labeled `auto-ready` + `nightshift`, re-entering the queue for the next nightshift run. This creates the self-sustaining feedback loop shown as the dashed arrow in the diagram.
 
 ## Label Lifecycle
 
@@ -134,3 +155,11 @@ Nightshift includes a dependency-aware promoter (`nightshift promote`) that uses
 - `bugbot` — filed by bugbot (vs. manually created)
 - `bugbot:{category}` — scanner category (e.g., `bugbot:dead-code`, `bugbot:type-holes`)
 - `priority:{level}` — severity-based priority (e.g., `priority:high`, `priority:low`)
+
+### Promotion Allowlist
+
+The wave promoter only promotes issues whose labels are **all** in the autonomous-compatible set. Labels outside this set block promotion (unknown labels fail safe).
+
+**Compatible labels:** `bug`, `enhancement`, `documentation`, `frontend`, `pipeline`, `extraction`, `dir:*`, `tier:*`, `priority:*`, `bugbot`, `bugbot:*`, `nightshift`, `auto-ready`, `auto-pr-ready`, `auto-failed`, `auto-review-failed`
+
+**Blocked by default:** `research`, `design`, `admin`, `in-progress`, `blocked`, and any label not in the set above. To make a new label autonomous-compatible, add it to `AUTONOMOUS_LABELS` in `nightshift/src/promoter.ts`.
