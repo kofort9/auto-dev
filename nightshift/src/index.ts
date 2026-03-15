@@ -36,7 +36,10 @@ const NIGHTSHIFT_ROOT = path.resolve(__dirname, ".."); // nightshift/
 const SCRIPT_DIR = path.join(NIGHTSHIFT_ROOT, "scripts"); // nightshift/scripts/
 const TARGET_REPO_DEFAULT = ""; // Set TARGET_REPO in .env
 const REPO_ROOT = path.resolve(
-  (process.env.TARGET_REPO ?? TARGET_REPO_DEFAULT).replace(/^~/, process.env.HOME ?? ""),
+  (process.env.TARGET_REPO ?? TARGET_REPO_DEFAULT).replace(
+    /^~/,
+    process.env.HOME ?? "",
+  ),
 );
 
 const log = createLogger("nightshift");
@@ -57,10 +60,12 @@ switch (subcommand) {
     break;
 
   case "optimize":
-    runOptimize(args.slice(1), REPO_ROOT).then(() => process.exit(0)).catch((err) => {
-      console.error("[optimize] Fatal:", err);
-      process.exit(1);
-    });
+    runOptimize(args.slice(1), REPO_ROOT)
+      .then(() => process.exit(0))
+      .catch((err) => {
+        console.error("[optimize] Fatal:", err);
+        process.exit(1);
+      });
     break;
 
   case "run":
@@ -113,7 +118,9 @@ function runNightshift(): void {
       case "--concurrency": {
         const val = args[++i];
         if (!val || !/^[1-9]\d*$/.test(val)) {
-          console.error("Error: --concurrency must be a positive integer (1-10)");
+          console.error(
+            "Error: --concurrency must be a positive integer (1-10)",
+          );
           process.exit(1);
         }
         const n = parseInt(val, 10);
@@ -195,7 +202,12 @@ async function main(opts: NightshiftOptions): Promise<void> {
   }
 
   // Process (phases 1-9)
-  const { startTs, endTs } = await processQueue(queue, opts, SCRIPT_DIR, REPO_ROOT);
+  const { startTs, endTs } = await processQueue(
+    queue,
+    opts,
+    SCRIPT_DIR,
+    REPO_ROOT,
+  );
 
   // Post-run self-review (phases 10-12)
   await runPostRunReview(REPO_ROOT);
